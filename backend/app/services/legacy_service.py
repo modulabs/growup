@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -12,14 +13,27 @@ logger = logging.getLogger(__name__)
 TIMEOUT = 15.0
 
 
+def _build_auth_headers() -> Dict[str, str]:
+    """Build HTTP Basic Auth header for n8n webhook."""
+    user = settings.N8N_LEGACY_DB_AUTH_USER
+    passwd = settings.N8N_LEGACY_DB_AUTH_PASS
+    if not user:
+        return {}
+    token = base64.b64encode(f"{user}:{passwd}".encode()).decode()
+    return {"Authorization": f"Basic {token}"}
+
+
 async def _query_legacy(sql: str) -> List[Dict[str, Any]]:
     """Execute a SQL query against Legacy DB via n8n webhook."""
     if not settings.N8N_LEGACY_DB_WEBHOOK_URL:
         logger.warning("N8N_LEGACY_DB_WEBHOOK_URL not configured")
         return []
+    headers = _build_auth_headers()
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         resp = await client.post(
-            settings.N8N_LEGACY_DB_WEBHOOK_URL, json={"query": sql}
+            settings.N8N_LEGACY_DB_WEBHOOK_URL,
+            json={"query": sql},
+            headers=headers,
         )
         resp.raise_for_status()
         data = resp.json()

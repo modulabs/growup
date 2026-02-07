@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 async def sync_user(db: AsyncSession, legacy_user: dict) -> CachedUser:
     """Upsert a user into the cache from Legacy data."""
-    user_id = legacy_user["user_id"]
+    user_id = int(legacy_user["user_id"])
     existing = await db.get(CachedUser, user_id)
     if existing:
         existing.name = legacy_user.get("first_name", existing.name)
@@ -42,6 +42,7 @@ async def sync_courses(db: AsyncSession) -> list[CachedCourse]:
         ug_id = row.get("user_group_id")
         if not ug_id:
             continue
+        ug_id = int(ug_id)
         existing = await db.execute(
             select(CachedCourse).where(CachedCourse.legacy_user_group_id == ug_id)
         )
@@ -75,6 +76,7 @@ async def sync_students_for_course(
         uid = row.get("user_id")
         if not uid:
             continue
+        uid = int(uid)
         existing = await db.get(CachedUser, uid)
         if existing:
             existing.name = row.get("name", existing.name)

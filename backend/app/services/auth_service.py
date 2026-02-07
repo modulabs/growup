@@ -16,7 +16,7 @@ async def login(name: str, phone: str, db: AsyncSession) -> Optional[LoginRespon
     if not legacy_user:
         return None
 
-    user_id = legacy_user["user_id"]
+    user_id = int(legacy_user["user_id"])
     user_name = legacy_user.get("first_name", name)
 
     # 2. Cache user locally
@@ -25,8 +25,8 @@ async def login(name: str, phone: str, db: AsyncSession) -> Optional[LoginRespon
     # 3. Get user courses from Legacy
     courses_data = await legacy_service.get_user_courses(user_id)
 
-    # 4. Determine role: if any course has COACH role, user is facilitator
-    role = "student"
+    # 4. Determine role: check is_coach flag from Legacy user, or COACH role in courses
+    role = "facilitator" if legacy_user.get("is_coach") else "student"
     active_courses = []
     for c in courses_data:
         if c.get("role") == "COACH":
@@ -34,7 +34,7 @@ async def login(name: str, phone: str, db: AsyncSession) -> Optional[LoginRespon
         if c.get("is_active"):
             active_courses.append(
                 CourseInfo(
-                    legacy_course_id=c.get("user_group_id", 0),
+                    legacy_course_id=int(c.get("user_group_id", 0)),
                     name=c.get("user_group_name", ""),
                 )
             )
