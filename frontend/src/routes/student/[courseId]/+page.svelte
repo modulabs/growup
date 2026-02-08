@@ -199,7 +199,7 @@
 
 				<!-- Rubric Progress -->
 				<div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col justify-center items-center text-center">
-					<div class="text-gray-500 text-sm font-medium mb-2">루브릭 진행률</div>
+					<div class="text-gray-500 text-sm font-medium mb-2">루브릭 평가</div>
 					<div class="relative w-24 h-24 flex items-center justify-center">
 						<svg class="w-full h-full transform -rotate-90">
 							<circle cx="48" cy="48" r="40" stroke="currentColor" stroke-width="8" fill="transparent" class="text-gray-100" />
@@ -208,15 +208,15 @@
 								stroke="currentColor" stroke-width="8" 
 								fill="transparent" 
 								stroke-dasharray={2 * Math.PI * 40} 
-								stroke-dashoffset={2 * Math.PI * 40 * (1 - (totalMainQuests > 0 ? completedRubrics / totalMainQuests : 0))} 
+								stroke-dashoffset="0" 
 								class="text-purple-500 transition-all duration-1000" 
 							/>
 						</svg>
 						<span class="absolute text-xl font-bold text-gray-700">
-							{totalMainQuests > 0 ? Math.round(completedRubrics/totalMainQuests*100) : 0}%
+							{completedRubrics}건
 						</span>
 					</div>
-					<p class="text-xs text-gray-400 mt-2">{completedRubrics} / {totalMainQuests} 완료</p>
+					<p class="text-xs text-gray-400 mt-2">평가 완료</p>
 				</div>
 
 				<div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col justify-center col-span-2">
