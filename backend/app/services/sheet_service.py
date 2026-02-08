@@ -34,7 +34,7 @@ from typing import Optional
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -388,53 +388,60 @@ def _fetch_bonus_notes(
     return notes
 
 
-def _parse_giver_from_note(note: str) -> Optional[str]:
-    """Extract giver name from note format 'Date/Reason/Score/Giver'.
-
-    Example: "0724/아낌없이주는그루/+2/조웅제" -> "조웅제"
-    Handles multiline notes by picking the first valid giver found or joining unique givers.
-    """
-    if not note:
-        return None
-
-    givers = set()
-    for line in note.split("\n"):
-        parts = line.split("/")
-        if len(parts) >= 4:
-            giver = parts[-1].strip()
-            if giver:
-                givers.add(giver)
-
-    if not givers:
-        return None
-
-    return ", ".join(sorted(givers))
+@dataclass
+class BonusEntry:
+    score: Decimal
+    giver: str
+    date: datetime
+    reason: str
 
 
-def _parse_date_from_note(note: str) -> Optional[datetime]:
-    """Extract date from note format 'Date/Reason/Score/Giver'.
+def _parse_bonus_entries(
+    note: str, cell_val: str, header_reason: str
+) -> list[BonusEntry]:
+    """Parse bonus entries from note or fallback to cell value."""
+    entries = []
+    now = datetime.now(timezone.utc)
 
-    Example: "0724/..." -> 2025-07-24
-    """
-    if not note:
-        return None
+    if note:
+        for line in note.split("\n"):
+            parts = line.split("/")
+            # Format: Date/Reason/Score/Giver (optional)
+            # Example: 0724/아낌없이주는그루/+2/조웅제
+            if len(parts) >= 3:
+                date_str = parts[0].strip()
+                score_str = parts[2].strip()
+                giver_str = parts[3].strip() if len(parts) > 3 else ""
 
-    # Use first line's date
-    line = note.split("\n")[0]
-    parts = line.split("/")
-    if len(parts) >= 1:
-        date_part = parts[0].strip()
-        if len(date_part) == 4 and date_part.isdigit():
-            try:
-                # Assume 2025 for now (Research 14th was 2025)
-                # Ideally, infer from course start date
-                year = 2025
-                month = int(date_part[:2])
-                day = int(date_part[2:])
-                return datetime(year, month, day, tzinfo=timezone.utc)
-            except ValueError:
-                pass
-    return None
+                # Parse date
+                dt = now
+                if len(date_str) == 4 and date_str.isdigit():
+                    try:
+                        # Assume 2025
+                        dt = datetime(
+                            2025,
+                            int(date_str[:2]),
+                            int(date_str[2:]),
+                            tzinfo=timezone.utc,
+                        )
+                    except ValueError:
+                        pass
+
+                # Parse score
+                try:
+                    # Remove + and convert
+                    score = Decimal(score_str.replace("+", ""))
+                    entries.append(BonusEntry(score, giver_str, dt, header_reason))
+                except Exception:
+                    pass
+
+    # If parsing failed or no note, use cell value
+    if not entries:
+        score, _ = _parse_score_cell(cell_val, "main")
+        if score is not None and score > 0:
+            entries.append(BonusEntry(score, "", now, header_reason))
+
+    return entries
 
 
 # ── Name-based student matching ──
@@ -665,41 +672,29 @@ async def import_from_sheet(
             if pb.col_index < len(row):
                 cell_val = row[pb.col_index]
 
-            score, _ = _parse_score_cell(cell_val, "main")
-
-            # Extract note for giver
+            # Parse entries from note (handles splits) or fallback to cell value
             note_content = notes_map.get((row_idx, pb.col_index), "")
-            giver_name = _parse_giver_from_note(note_content)
-            parsed_date = _parse_date_from_note(note_content)
-            bonus_date = parsed_date if parsed_date else now
+            bonus_entries = _parse_bonus_entries(note_content, cell_val, pb.reason)
 
-            if score is not None and score > 0:
-                stmt = select(BonusScore).where(
+            if bonus_entries:
+                # 1. Delete existing for this reason (to handle splits/updates cleanly)
+                stmt_del = delete(BonusScore).where(
                     BonusScore.cached_course_id == course_id,
                     BonusScore.legacy_student_id == student_id,
                     BonusScore.reason == pb.reason,
                 )
-                existing_bonus = (await db.execute(stmt)).scalar_one_or_none()
+                await db.execute(stmt_del)
 
-                if existing_bonus:
-                    if (
-                        existing_bonus.score != score
-                        or existing_bonus.given_by_name != giver_name
-                        or existing_bonus.given_at != bonus_date
-                    ):
-                        existing_bonus.score = score
-                        existing_bonus.given_by_name = giver_name
-                        existing_bonus.given_at = bonus_date
-                        result.scores_updated += 1
-                else:
+                # 2. Insert new entries
+                for entry in bonus_entries:
                     new_bonus = BonusScore(
                         cached_course_id=course_id,
                         legacy_student_id=student_id,
-                        score=score,
+                        score=entry.score,
                         reason=pb.reason,
                         given_by_legacy_user_id=facilitator_id,
-                        given_by_name=giver_name,
-                        given_at=bonus_date,
+                        given_by_name=entry.giver,
+                        given_at=entry.date,
                     )
                     db.add(new_bonus)
                     result.scores_created += 1

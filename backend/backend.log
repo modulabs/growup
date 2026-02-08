@@ -73,3 +73,11 @@ INFO:     127.0.0.1:50066 - "OPTIONS /api/v1/student/courses/1/scores HTTP/1.1" 
 INFO:     127.0.0.1:50071 - "OPTIONS /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
 INFO:     127.0.0.1:50066 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
 INFO:     127.0.0.1:50071 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50348 - "OPTIONS /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50349 - "OPTIONS /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50348 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50349 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53215 - "OPTIONS /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53216 - "OPTIONS /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53216 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53215 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
