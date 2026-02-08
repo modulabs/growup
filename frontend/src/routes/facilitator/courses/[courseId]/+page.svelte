@@ -264,7 +264,7 @@
 	}
 </script>
 
-<div class="max-w-6xl mx-auto p-6">
+<div class="max-w-[1600px] mx-auto p-6">
 	<div class="mb-6">
 		<button
 			onclick={() => goto(`${base}/facilitator`)}
@@ -272,209 +272,217 @@
 		>
 			← 과정 목록
 		</button>
-		<div class="flex items-center justify-between">
-			<h1 class="text-2xl font-bold text-gray-800">퀘스트 관리</h1>
-			<div class="flex gap-2">
-				<button
-					onclick={openImportModal}
-					class="px-3 py-2 text-sm border border-green-600 text-green-700 rounded-lg hover:bg-green-50 transition-colors cursor-pointer"
-				>
-					📥 시트에서 가져오기
-				</button>
-				<button
-					onclick={openCreateModal}
-					class="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
-				>
-					+ 퀘스트 추가
-				</button>
-			</div>
-		</div>
+		<h1 class="text-2xl font-bold text-gray-800">퀘스트 관리</h1>
 	</div>
 
-	{#if loading}
-		<LoadingSkeleton type="card" lines={4} />
-	{:else if quests.length === 0}
-		<div class="text-center py-12 text-gray-500">
-			<p class="mb-4">등록된 퀘스트가 없습니다.</p>
-			<p class="text-sm">위의 "+ 퀘스트 추가" 버튼으로 퀘스트를 생성하세요.</p>
-		</div>
-	{:else}
-		<!-- Selection toolbar -->
-		<div class="flex items-center justify-between mb-3 px-1">
-			<label class="flex items-center gap-2 cursor-pointer select-none">
-				<input
-					type="checkbox"
-					checked={allSelected}
-					onchange={toggleSelectAll}
-					class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-				/>
-				<span class="text-sm text-gray-600">전체 선택 ({selectedQuestIds.size}/{quests.length})</span>
-			</label>
-			{#if selectedQuestIds.size > 0}
-				<button
-					onclick={batchDeleteQuests}
-					disabled={batchDeleting}
-					class="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors cursor-pointer"
-				>
-					{batchDeleting ? '삭제 중...' : `선택 삭제 (${selectedQuestIds.size})`}
-				</button>
+	<!-- Two-column layout: Quests (left) | Bonus (right) -->
+	<div class="flex gap-6 items-start">
+		<!-- LEFT: Quest list -->
+		<div class="flex-1 min-w-0">
+			<div class="flex items-center justify-between mb-4">
+				<h2 class="text-lg font-semibold text-gray-700">퀘스트 목록</h2>
+				<div class="flex gap-2">
+					<button
+						onclick={openImportModal}
+						class="px-3 py-2 text-sm border border-green-600 text-green-700 rounded-lg hover:bg-green-50 transition-colors cursor-pointer"
+					>
+						📥 시트에서 가져오기
+					</button>
+					<button
+						onclick={openCreateModal}
+						class="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
+					>
+						+ 퀘스트 추가
+					</button>
+				</div>
+			</div>
+
+			{#if loading}
+				<LoadingSkeleton type="card" lines={4} />
+			{:else if quests.length === 0}
+				<div class="text-center py-12 text-gray-500">
+					<p class="mb-4">등록된 퀘스트가 없습니다.</p>
+					<p class="text-sm">위의 "+ 퀘스트 추가" 버튼으로 퀘스트를 생성하세요.</p>
+				</div>
+			{:else}
+				<!-- Selection toolbar -->
+				<div class="flex items-center justify-between mb-3 px-1">
+					<label class="flex items-center gap-2 cursor-pointer select-none">
+						<input
+							type="checkbox"
+							checked={allSelected}
+							onchange={toggleSelectAll}
+							class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+						/>
+						<span class="text-sm text-gray-600">전체 선택 ({selectedQuestIds.size}/{quests.length})</span>
+					</label>
+					{#if selectedQuestIds.size > 0}
+						<button
+							onclick={batchDeleteQuests}
+							disabled={batchDeleting}
+							class="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors cursor-pointer"
+						>
+							{batchDeleting ? '삭제 중...' : `선택 삭제 (${selectedQuestIds.size})`}
+						</button>
+					{/if}
+				</div>
+
+				<div class="space-y-3">
+					{#each [...quests].sort((a, b) => a.quest_number - b.quest_number) as quest}
+						<div
+							class="bg-white rounded-lg border p-4 flex items-center justify-between hover:shadow-sm transition-shadow {selectedQuestIds.has(quest.id) ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}"
+						>
+							<div class="flex items-center gap-3 flex-1">
+								<input
+									type="checkbox"
+									checked={selectedQuestIds.has(quest.id)}
+									onchange={() => toggleSelectQuest(quest.id)}
+									class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer flex-shrink-0"
+								/>
+								<button
+									class="flex-1 text-left cursor-pointer"
+									onclick={() => goto(`${base}/facilitator/quests/${quest.id}`)}
+								>
+									<div class="flex items-center gap-3">
+										<span class="text-lg font-bold text-gray-400">#{quest.quest_number}</span>
+										<div>
+											<span class="font-medium text-gray-800"
+												>{quest.title || QUEST_TYPE_LABELS[quest.quest_type]}</span
+											>
+											<div class="flex items-center gap-2 mt-1 text-xs">
+												<span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
+													{QUEST_TYPE_LABELS[quest.quest_type]}
+												</span>
+												<span class="text-gray-400">{quest.quest_date}</span>
+												<span class="text-gray-400">·</span>
+												<span class={quest.graded_count === quest.total_students && quest.total_students > 0 ? 'text-green-600 font-medium' : 'text-gray-500'}>
+													채점 {quest.graded_count}/{quest.total_students}
+												</span>
+												{#if quest.total_students > 0}
+													<div class="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+														<div
+															class="h-full rounded-full transition-all {quest.graded_count === quest.total_students ? 'bg-green-500' : 'bg-blue-500'}"
+															style="width: {(quest.graded_count / quest.total_students) * 100}%"
+														></div>
+													</div>
+												{/if}
+											</div>
+										</div>
+									</div>
+								</button>
+							</div>
+							<div class="flex gap-1 ml-4">
+								<button
+									onclick={() => openEditModal(quest)}
+									class="p-2 text-gray-400 hover:text-blue-600 cursor-pointer text-sm"
+								>
+									수정
+								</button>
+								<button
+									onclick={() => deleteQuest(quest)}
+									class="p-2 text-gray-400 hover:text-red-600 cursor-pointer text-sm"
+								>
+									삭제
+								</button>
+							</div>
+						</div>
+					{/each}
+				</div>
 			{/if}
 		</div>
 
-		<div class="space-y-3">
-			{#each [...quests].sort((a, b) => a.quest_number - b.quest_number) as quest}
-				<div
-					class="bg-white rounded-lg border p-4 flex items-center justify-between hover:shadow-sm transition-shadow {selectedQuestIds.has(quest.id) ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}"
-				>
-					<div class="flex items-center gap-3 flex-1">
-						<input
-							type="checkbox"
-							checked={selectedQuestIds.has(quest.id)}
-							onchange={() => toggleSelectQuest(quest.id)}
-							class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer flex-shrink-0"
-						/>
-						<button
-							class="flex-1 text-left cursor-pointer"
-							onclick={() => goto(`${base}/facilitator/quests/${quest.id}`)}
-						>
-							<div class="flex items-center gap-3">
-								<span class="text-lg font-bold text-gray-400">#{quest.quest_number}</span>
-								<div>
-									<span class="font-medium text-gray-800"
-										>{quest.title || QUEST_TYPE_LABELS[quest.quest_type]}</span
-									>
-									<div class="flex items-center gap-2 mt-1 text-xs">
-										<span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
-											{QUEST_TYPE_LABELS[quest.quest_type]}
-										</span>
-										<span class="text-gray-400">{quest.quest_date}</span>
-										<span class="text-gray-400">·</span>
-										<span class={quest.graded_count === quest.total_students && quest.total_students > 0 ? 'text-green-600 font-medium' : 'text-gray-500'}>
-											채점 {quest.graded_count}/{quest.total_students}
-										</span>
-										{#if quest.total_students > 0}
-											<div class="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-												<div
-													class="h-full rounded-full transition-all {quest.graded_count === quest.total_students ? 'bg-green-500' : 'bg-blue-500'}"
-													style="width: {(quest.graded_count / quest.total_students) * 100}%"
-												></div>
-											</div>
-										{/if}
-									</div>
-								</div>
-							</div>
-						</button>
-					</div>
-					<div class="flex gap-1 ml-4">
-						<button
-							onclick={() => openEditModal(quest)}
-							class="p-2 text-gray-400 hover:text-blue-600 cursor-pointer text-sm"
-						>
-							수정
-						</button>
-						<button
-							onclick={() => deleteQuest(quest)}
-							class="p-2 text-gray-400 hover:text-red-600 cursor-pointer text-sm"
-						>
-							삭제
-						</button>
-					</div>
-				</div>
-			{/each}
-		</div>
-	{/if}
+		<!-- RIGHT: Bonus scores (sticky sidebar) -->
+		<div class="w-[380px] flex-shrink-0 sticky top-6">
+			<h2 class="text-lg font-semibold text-gray-700 mb-4">비정규 점수 관리</h2>
 
-	<!-- Bonus Scores Section -->
-	<div class="mt-10">
-		<h2 class="text-xl font-bold text-gray-800 mb-4">비정규 점수 관리</h2>
-
-		<!-- Add bonus score form -->
-		<div class="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-			<h3 class="text-sm font-medium text-gray-700 mb-3">비정규 점수 부여</h3>
-			<div class="flex flex-wrap gap-3 items-end">
-				<div class="flex-1 min-w-[160px]">
-					<label class="block text-xs text-gray-500 mb-1">학생</label>
-					<select
-						bind:value={bonusStudentId}
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+			<!-- Add bonus score form -->
+			<div class="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+				<h3 class="text-sm font-medium text-gray-700 mb-3">비정규 점수 부여</h3>
+				<div class="space-y-3">
+					<div>
+						<label class="block text-xs text-gray-500 mb-1">학생</label>
+						<select
+							bind:value={bonusStudentId}
+							class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+						>
+							<option value={null}>학생 선택</option>
+							{#each students as s}
+								<option value={s.legacy_user_id}>{s.name}</option>
+							{/each}
+						</select>
+					</div>
+					<div class="flex gap-3">
+						<div class="w-24">
+							<label class="block text-xs text-gray-500 mb-1">점수</label>
+							<input
+								type="number"
+								bind:value={bonusScoreValue}
+								step="0.5"
+								min="0"
+								class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+							/>
+						</div>
+						<div class="flex-1">
+							<label class="block text-xs text-gray-500 mb-1">사유</label>
+							<input
+								type="text"
+								bind:value={bonusReason}
+								placeholder="예: 발표 우수"
+								class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+							/>
+						</div>
+					</div>
+					<button
+						onclick={addBonusScore}
+						disabled={bonusSubmitting}
+						class="w-full px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors cursor-pointer"
 					>
-						<option value={null}>학생 선택</option>
-						{#each students as s}
-							<option value={s.legacy_user_id}>{s.name}</option>
-						{/each}
-					</select>
+						{bonusSubmitting ? '부여 중...' : '+ 부여'}
+					</button>
 				</div>
-				<div class="w-24">
-					<label class="block text-xs text-gray-500 mb-1">점수</label>
-					<input
-						type="number"
-						bind:value={bonusScoreValue}
-						step="0.5"
-						min="0"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-					/>
-				</div>
-				<div class="flex-1 min-w-[200px]">
-					<label class="block text-xs text-gray-500 mb-1">사유</label>
-					<input
-						type="text"
-						bind:value={bonusReason}
-						placeholder="예: 발표 우수, 팀 기여 등"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-					/>
-				</div>
-				<button
-					onclick={addBonusScore}
-					disabled={bonusSubmitting}
-					class="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
-				>
-					{bonusSubmitting ? '부여 중...' : '+ 부여'}
-				</button>
 			</div>
-		</div>
 
-		<!-- Bonus scores list -->
-		{#if bonusLoading}
-			<LoadingSkeleton type="card" lines={3} />
-		{:else if bonusScores.length === 0}
-			<div class="text-center py-8 text-gray-400 text-sm">
-				부여된 비정규 점수가 없습니다.
-			</div>
-		{:else}
-			<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-				<table class="w-full text-sm">
-					<thead class="bg-gray-50">
-						<tr>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">학생</th>
-							<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">점수</th>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">사유</th>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">부여자</th>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">날짜</th>
-							<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase"></th>
-						</tr>
-					</thead>
-					<tbody class="divide-y divide-gray-100">
-						{#each bonusScores as bs}
-							<tr class="hover:bg-gray-50">
-								<td class="px-4 py-3 font-medium text-gray-800">{bs.student_name}</td>
-								<td class="px-4 py-3 text-center font-bold text-green-600">+{bs.score}</td>
-								<td class="px-4 py-3 text-gray-600">{bs.reason}</td>
-								<td class="px-4 py-3 text-gray-500">{bs.given_by_name}</td>
-								<td class="px-4 py-3 text-gray-400">{new Date(bs.given_at).toLocaleDateString('ko-KR')}</td>
-								<td class="px-4 py-3 text-center">
-									<button
-										onclick={() => deleteBonusScore(bs.id)}
-										class="text-red-400 hover:text-red-600 cursor-pointer text-xs"
-									>
-										삭제
-									</button>
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		{/if}
+			<!-- Bonus scores list -->
+			{#if bonusLoading}
+				<LoadingSkeleton type="card" lines={3} />
+			{:else if bonusScores.length === 0}
+				<div class="text-center py-8 text-gray-400 text-sm">
+					부여된 비정규 점수가 없습니다.
+				</div>
+			{:else}
+				<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+					<div class="max-h-[calc(100vh-400px)] overflow-y-auto">
+						<table class="w-full text-sm">
+							<thead class="bg-gray-50 sticky top-0">
+								<tr>
+									<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">학생</th>
+									<th class="px-3 py-2 text-center text-xs font-medium text-gray-500">점수</th>
+									<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">사유</th>
+									<th class="px-3 py-2 text-center text-xs font-medium text-gray-500 w-10"></th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-gray-100">
+								{#each bonusScores as bs}
+									<tr class="hover:bg-gray-50" title="{bs.given_by_name} · {new Date(bs.given_at).toLocaleDateString('ko-KR')}">
+										<td class="px-3 py-2 font-medium text-gray-800 truncate max-w-[100px]">{bs.student_name}</td>
+										<td class="px-3 py-2 text-center font-bold text-green-600">+{bs.score}</td>
+										<td class="px-3 py-2 text-gray-600 truncate max-w-[120px]">{bs.reason}</td>
+										<td class="px-3 py-2 text-center">
+											<button
+												onclick={() => deleteBonusScore(bs.id)}
+												class="text-red-400 hover:text-red-600 cursor-pointer text-xs"
+											>
+												삭제
+											</button>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			{/if}
+		</div>
 	</div>
 </div>
 
