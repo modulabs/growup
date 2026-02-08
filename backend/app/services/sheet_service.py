@@ -394,6 +394,7 @@ class BonusEntry:
     giver: str
     date: datetime
     reason: str
+    specific_reason: str = ""
 
 
 def _parse_bonus_entries(
@@ -410,6 +411,7 @@ def _parse_bonus_entries(
             # Example: 0724/아낌없이주는그루/+2/조웅제
             if len(parts) >= 3:
                 date_str = parts[0].strip()
+                reason_str = parts[1].strip()
                 score_str = parts[2].strip()
                 giver_str = parts[3].strip() if len(parts) > 3 else ""
 
@@ -431,7 +433,9 @@ def _parse_bonus_entries(
                 try:
                     # Remove + and convert
                     score = Decimal(score_str.replace("+", ""))
-                    entries.append(BonusEntry(score, giver_str, dt, header_reason))
+                    entries.append(
+                        BonusEntry(score, giver_str, dt, header_reason, reason_str)
+                    )
                 except Exception:
                     pass
 
@@ -439,7 +443,7 @@ def _parse_bonus_entries(
     if not entries:
         score, _ = _parse_score_cell(cell_val, "main")
         if score is not None and score > 0:
-            entries.append(BonusEntry(score, "", now, header_reason))
+            entries.append(BonusEntry(score, "", now, header_reason, ""))
 
     return entries
 
@@ -681,17 +685,21 @@ async def import_from_sheet(
                 stmt_del = delete(BonusScore).where(
                     BonusScore.cached_course_id == course_id,
                     BonusScore.legacy_student_id == student_id,
-                    BonusScore.reason == pb.reason,
+                    BonusScore.reason.like(f"{pb.reason}%"),
                 )
                 await db.execute(stmt_del)
 
                 # 2. Insert new entries
                 for entry in bonus_entries:
+                    final_reason = pb.reason
+                    if entry.specific_reason:
+                        final_reason = f"{pb.reason}: {entry.specific_reason}"
+
                     new_bonus = BonusScore(
                         cached_course_id=course_id,
                         legacy_student_id=student_id,
                         score=entry.score,
-                        reason=pb.reason,
+                        reason=final_reason,
                         given_by_legacy_user_id=facilitator_id,
                         given_by_name=entry.giver,
                         given_at=entry.date,
