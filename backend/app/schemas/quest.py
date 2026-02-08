@@ -31,3 +31,20 @@ class QuestOut(BaseModel):
     total_students: int = 0
 
     model_config = {"from_attributes": True}
+
+
+class BatchDeleteRequest(BaseModel):
+    quest_ids: list[str]
+
+
+class SheetImportRequest(BaseModel):
+    spreadsheet_id: str
+    sheet_name: str = "퀘스트"
+
+
+class SheetImportResponse(BaseModel):
+    quests_created: int = 0
+    quests_updated: int = 0
+    scores_created: int = 0
+    scores_updated: int = 0
+    errors: list[str] = []

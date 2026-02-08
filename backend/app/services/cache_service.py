@@ -74,7 +74,8 @@ async def sync_students_for_course(
     synced = []
     for row in rows:
         uid = row.get("user_id")
-        if not uid:
+        name = (row.get("name") or "").strip()
+        if not uid or not name:
             continue
         uid = int(uid)
         existing = await db.get(CachedUser, uid)

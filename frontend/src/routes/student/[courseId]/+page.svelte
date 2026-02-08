@@ -45,6 +45,14 @@
 	function scoreClass(isSubmitted: boolean): string {
 		return isSubmitted ? 'text-gray-900' : 'text-gray-400 italic';
 	}
+
+	function formatDate(dateStr: string): string {
+		try {
+			return new Date(dateStr).toLocaleDateString('ko-KR');
+		} catch {
+			return dateStr;
+		}
+	}
 </script>
 
 <div class="max-w-4xl mx-auto p-6">
@@ -128,7 +136,7 @@
 								<td class="px-4 py-2 text-gray-700">{bonus.reason || '-'}</td>
 								<td class="px-4 py-2 text-center font-medium text-amber-700">+{bonus.score}</td>
 								<td class="px-4 py-2 text-gray-500">{bonus.given_by_name}</td>
-								<td class="px-4 py-2 text-gray-400 text-xs">{bonus.given_at}</td>
+								<td class="px-4 py-2 text-gray-400 text-xs">{formatDate(bonus.given_at)}</td>
 							</tr>
 						{/each}
 					</tbody>

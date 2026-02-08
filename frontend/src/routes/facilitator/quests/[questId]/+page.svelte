@@ -15,6 +15,7 @@
 	let quest = $state<Quest | null>(null);
 	let scores = $state<ScoreOut[]>([]);
 	let questId = $derived(page.params.questId);
+	let syncAttempted = $state(false);
 
 	// Editable score map: legacy_student_id -> { score, is_submitted }
 	let editMap = $state<Map<number, { score: number | null; is_submitted: boolean }>>(new Map());
@@ -54,6 +55,20 @@
 			quest = questData;
 			scores = scoreList;
 			initEditMap();
+
+			// Auto-sync: if no students and haven't tried yet, trigger sync and reload
+			if (scores.length === 0 && quest && !syncAttempted) {
+				syncAttempted = true;
+				try {
+					await api.post(`/api/v1/admin/sync/students/${quest.cached_course_id}`);
+					// Reload scores after sync
+					const retryScores = await api.get<ScoreOut[]>(`/api/v1/facilitator/quests/${questId}/students`);
+					scores = retryScores;
+					initEditMap();
+				} catch {
+					// Sync failed silently — page will show empty state
+				}
+			}
 		} catch (err) {
 			addToast('점수 데이터를 불러올 수 없습니다.', 'error');
 		} finally {
@@ -175,8 +190,8 @@
 		<LoadingSkeleton type="table" lines={8} />
 	{:else if scores.length === 0}
 		<div class="text-center py-12 text-gray-500">
-			<p class="mb-4">학생 명단이 없습니다.</p>
-			<p class="text-sm">퀘스트 관리 페이지에서 "학생 동기화"를 먼저 실행해주세요.</p>
+			<p class="mb-4">학생 명단을 불러오는 중...</p>
+			<p class="text-sm">잠시만 기다려주세요.</p>
 		</div>
 	{:else}
 		<!-- Action Bar -->
@@ -212,68 +227,67 @@
 						<th class="text-left px-4 py-3 text-sm font-medium text-gray-600 w-12">#</th>
 						<th class="text-left px-4 py-3 text-sm font-medium text-gray-600">학생</th>
 						<th class="text-center px-4 py-3 text-sm font-medium text-gray-600 w-32">점수</th>
-						<th class="text-center px-4 py-3 text-sm font-medium text-gray-600 w-24">미제출</th>
+						<th class="text-center px-4 py-3 text-sm font-medium text-gray-600 w-24">제출</th>
 						<th class="text-center px-4 py-3 text-sm font-medium text-gray-600 w-20">상태</th>
 					</tr>
 				</thead>
 				<tbody>
-					{#each scores as s, i}
-						{@const entry = editMap.get(s.legacy_student_id)}
-						{#if entry}
-							<tr class="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 {!entry.is_submitted ? 'bg-gray-50/80' : ''}">
-								<td class="px-4 py-2.5 text-sm text-gray-400">{i + 1}</td>
-								<td class="px-4 py-2.5 text-sm font-medium text-gray-800">{s.student_name}</td>
-								<td class="px-4 py-2.5 text-center">
-									{#if quest && quest.quest_type === 'sub'}
-										<!-- Sub quest: simple pass/fail toggle -->
-										<button
-											onclick={() => {
-												if (!entry.is_submitted) return;
-												setScore(s.legacy_student_id, entry.score === 1 ? '0' : '1');
-											}}
-											disabled={!entry.is_submitted}
-											class="px-3 py-1 rounded text-sm font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed {entry.score === 1 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}"
-										>
-											{entry.score === 1 ? 'Pass' : 'Non-pass'}
-										</button>
-									{:else}
-										<!-- Numeric score input -->
-										<input
-											type="number"
-											value={entry.is_submitted && entry.score !== null ? entry.score : ''}
-											disabled={!entry.is_submitted}
-											min={rule.min}
-											max={rule.max}
-											step={rule.step}
-											oninput={(e) => setScore(s.legacy_student_id, (e.target as HTMLInputElement).value)}
-											class="w-20 px-2 py-1 text-center border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-										/>
-									{/if}
-								</td>
-								<td class="px-4 py-2.5 text-center">
-									<label class="inline-flex items-center cursor-pointer">
-										<input
-											type="checkbox"
-											checked={!entry.is_submitted}
-											onchange={() => toggleSubmitted(s.legacy_student_id)}
-											class="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
-										/>
-									</label>
-								</td>
-								<td class="px-4 py-2.5 text-center">
-									{#if originalMap.get(s.legacy_student_id) && (entry.score !== originalMap.get(s.legacy_student_id)?.score || entry.is_submitted !== originalMap.get(s.legacy_student_id)?.is_submitted)}
-										<span class="inline-block w-2 h-2 rounded-full bg-orange-400" title="변경됨"></span>
-									{:else if entry.is_submitted && entry.score !== null}
-										<span class="inline-block w-2 h-2 rounded-full bg-green-400" title="채점 완료"></span>
-									{:else if !entry.is_submitted}
-										<span class="inline-block w-2 h-2 rounded-full bg-gray-300" title="미제출"></span>
-									{:else}
-										<span class="inline-block w-2 h-2 rounded-full bg-yellow-400" title="미채점"></span>
-									{/if}
-								</td>
-							</tr>
-						{/if}
-					{/each}
+				{#each scores as s, i}
+					{#if editMap.get(s.legacy_student_id)}
+						<tr class="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 {!editMap.get(s.legacy_student_id)?.is_submitted ? 'bg-gray-50/80' : ''}">
+							<td class="px-4 py-2.5 text-sm text-gray-400">{i + 1}</td>
+							<td class="px-4 py-2.5 text-sm font-medium text-gray-800">{s.student_name}</td>
+							<td class="px-4 py-2.5 text-center">
+								{#if quest && quest.quest_type === 'sub'}
+									<!-- Sub quest: simple pass/fail toggle -->
+									<button
+										onclick={() => {
+											if (!editMap.get(s.legacy_student_id)?.is_submitted) return;
+											setScore(s.legacy_student_id, editMap.get(s.legacy_student_id)?.score === 1 ? '0' : '1');
+										}}
+										disabled={!editMap.get(s.legacy_student_id)?.is_submitted}
+										class="px-3 py-1 rounded text-sm font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed {editMap.get(s.legacy_student_id)?.score === 1 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}"
+									>
+										{editMap.get(s.legacy_student_id)?.score === 1 ? 'Pass' : 'Non-pass'}
+									</button>
+								{:else}
+									<!-- Numeric score input -->
+									<input
+										type="number"
+										value={editMap.get(s.legacy_student_id)?.is_submitted && editMap.get(s.legacy_student_id)?.score !== null ? editMap.get(s.legacy_student_id)?.score : ''}
+										disabled={!editMap.get(s.legacy_student_id)?.is_submitted}
+										min={rule.min}
+										max={rule.max}
+										step={rule.step}
+										oninput={(e) => setScore(s.legacy_student_id, (e.target as HTMLInputElement).value)}
+										class="w-20 px-2 py-1 text-center border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+									/>
+								{/if}
+							</td>
+							<td class="px-4 py-2.5 text-center">
+								<label class="inline-flex items-center cursor-pointer">
+									<input
+										type="checkbox"
+									checked={editMap.get(s.legacy_student_id)?.is_submitted}
+									onchange={() => toggleSubmitted(s.legacy_student_id)}
+									class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+									/>
+								</label>
+							</td>
+							<td class="px-4 py-2.5 text-center">
+								{#if originalMap.get(s.legacy_student_id) && (editMap.get(s.legacy_student_id)?.score !== originalMap.get(s.legacy_student_id)?.score || editMap.get(s.legacy_student_id)?.is_submitted !== originalMap.get(s.legacy_student_id)?.is_submitted)}
+									<span class="inline-block w-2 h-2 rounded-full bg-orange-400" title="변경됨"></span>
+								{:else if editMap.get(s.legacy_student_id)?.is_submitted && editMap.get(s.legacy_student_id)?.score !== null}
+									<span class="inline-block w-2 h-2 rounded-full bg-green-400" title="채점 완료"></span>
+								{:else if !editMap.get(s.legacy_student_id)?.is_submitted}
+									<span class="inline-block w-2 h-2 rounded-full bg-gray-300" title="미제출"></span>
+								{:else}
+									<span class="inline-block w-2 h-2 rounded-full bg-yellow-400" title="미채점"></span>
+								{/if}
+							</td>
+						</tr>
+					{/if}
+				{/each}
 				</tbody>
 			</table>
 		</div>

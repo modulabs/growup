@@ -13,13 +13,21 @@ from app.models.cache import CachedCourse, CachedEnrollment, CachedUser
 from app.models.favorite import FacilitatorFavorite
 from app.models.quest import Quest, QuestScore
 from app.schemas.course import CourseOut, StudentOut
-from app.schemas.quest import QuestCreate, QuestOut, QuestUpdate
+from app.schemas.quest import (
+    BatchDeleteRequest,
+    QuestCreate,
+    QuestOut,
+    QuestUpdate,
+    SheetImportRequest,
+    SheetImportResponse,
+)
 from app.schemas.score import (
     BonusScoreCreate,
     BonusScoreOut,
     ScoreBatchRequest,
     ScoreOut,
 )
+from app.services.sheet_service import import_from_sheet
 
 router = APIRouter(tags=["facilitator"])
 
@@ -116,6 +124,7 @@ async def list_students(
             CachedEnrollment.legacy_user_id == CachedUser.legacy_user_id,
         )
         .where(CachedEnrollment.legacy_course_id == course_id)
+        .where(CachedUser.name != "")
         .order_by(CachedUser.name)
     )
     result = await db.execute(stmt)
@@ -275,6 +284,60 @@ async def delete_quest(
     await db.commit()
 
 
+@router.delete("/courses/{course_id}/quests", status_code=200)
+async def delete_all_course_quests(
+    course_id: int,
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(require_facilitator),
+):
+    """Delete ALL quests (and their scores) for a course."""
+    # Get all quest ids for this course
+    quest_ids_result = await db.execute(
+        select(Quest.id).where(Quest.cached_course_id == course_id)
+    )
+    quest_ids = [str(qid) for qid in quest_ids_result.scalars().all()]
+
+    if not quest_ids:
+        return {"deleted_count": 0}
+
+    # Delete scores first, then quests
+    await db.execute(delete(QuestScore).where(QuestScore.quest_id.in_(quest_ids)))
+    await db.execute(delete(Quest).where(Quest.cached_course_id == course_id))
+    await db.commit()
+
+    return {"deleted_count": len(quest_ids)}
+
+
+@router.post("/courses/{course_id}/quests/batch-delete", status_code=200)
+async def batch_delete_quests(
+    course_id: int,
+    body: BatchDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(require_facilitator),
+):
+    """Delete selected quests (and their scores) by IDs."""
+    if not body.quest_ids:
+        return {"deleted_count": 0}
+
+    # Verify all quests belong to this course
+    verify_result = await db.execute(
+        select(Quest.id)
+        .where(Quest.id.in_(body.quest_ids))
+        .where(Quest.cached_course_id == course_id)
+    )
+    valid_ids = [str(qid) for qid in verify_result.scalars().all()]
+
+    if not valid_ids:
+        return {"deleted_count": 0}
+
+    # Delete scores first, then quests
+    await db.execute(delete(QuestScore).where(QuestScore.quest_id.in_(valid_ids)))
+    await db.execute(delete(Quest).where(Quest.id.in_(valid_ids)))
+    await db.commit()
+
+    return {"deleted_count": len(valid_ids)}
+
+
 # ── Scores ──
 
 
@@ -296,6 +359,7 @@ async def list_quest_students(
             CachedEnrollment.legacy_user_id == CachedUser.legacy_user_id,
         )
         .where(CachedEnrollment.legacy_course_id == quest.cached_course_id)
+        .where(CachedUser.name != "")
         .order_by(CachedUser.name)
     )
     students_result = await db.execute(students_stmt)
@@ -520,3 +584,29 @@ async def toggle_favorite(
         db.add(fav)
         await db.commit()
         return {"is_favorite": True}
+
+
+# ── Sheet Import ──
+
+
+@router.post("/courses/{course_id}/import-sheet", response_model=SheetImportResponse)
+async def import_sheet(
+    course_id: int,
+    body: SheetImportRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(require_facilitator),
+):
+    result = await import_from_sheet(
+        db=db,
+        spreadsheet_id=body.spreadsheet_id,
+        course_id=course_id,
+        facilitator_id=current_user["legacy_user_id"],
+        sheet_name=body.sheet_name,
+    )
+    return SheetImportResponse(
+        quests_created=result.quests_created,
+        quests_updated=result.quests_updated,
+        scores_created=result.scores_created,
+        scores_updated=result.scores_updated,
+        errors=result.errors,
+    )

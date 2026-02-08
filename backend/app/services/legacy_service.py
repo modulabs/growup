@@ -110,6 +110,7 @@ async def list_students_by_course(user_group_id: int) -> List[Dict[str, Any]]:
     JOIN core_user cu ON ugm.user_id = cu.id
     WHERE ugm.user_group_id = {user_group_id}
       AND ugm.role = 'MEMBER'
+      AND TRIM(COALESCE(cu.first_name, '')) != ''
     ORDER BY cu.first_name
     """
     return await _query_legacy(sql)

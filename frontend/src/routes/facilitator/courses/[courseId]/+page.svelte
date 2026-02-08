@@ -11,7 +11,6 @@
 	import LoadingSkeleton from '$lib/components/LoadingSkeleton.svelte';
 
 	let loading = $state(true);
-	let syncing = $state(false);
 	let quests = $state<Quest[]>([]);
 	let courseId = $derived(page.params.courseId);
 
@@ -26,6 +25,61 @@
 	// Edit state
 	let editingQuest = $state<Quest | null>(null);
 
+	// Selection state for batch delete
+	let selectedQuestIds = $state<Set<string>>(new Set());
+	let batchDeleting = $state(false);
+	let allSelected = $derived(quests.length > 0 && selectedQuestIds.size === quests.length);
+
+	function toggleSelectQuest(id: string) {
+		const next = new Set(selectedQuestIds);
+		if (next.has(id)) {
+			next.delete(id);
+		} else {
+			next.add(id);
+		}
+		selectedQuestIds = next;
+	}
+
+	function toggleSelectAll() {
+		if (allSelected) {
+			selectedQuestIds = new Set();
+		} else {
+			selectedQuestIds = new Set(quests.map((q) => q.id));
+		}
+	}
+
+	async function batchDeleteQuests() {
+		if (selectedQuestIds.size === 0) return;
+		const count = selectedQuestIds.size;
+		if (!confirm(`선택한 ${count}개 퀘스트를 삭제하시겠습니까?\n연관된 점수도 함께 삭제됩니다.`)) return;
+		batchDeleting = true;
+		try {
+			await api.post(`/api/v1/facilitator/courses/${courseId}/quests/batch-delete`, {
+				quest_ids: [...selectedQuestIds]
+			});
+			addToast(`${count}개 퀘스트가 삭제되었습니다.`, 'success');
+			selectedQuestIds = new Set();
+			await loadQuests();
+		} catch {
+			addToast('퀘스트 삭제에 실패했습니다.', 'error');
+		} finally {
+			batchDeleting = false;
+		}
+	}
+
+	// Sheet import modal
+	let showImportModal = $state(false);
+	let importUrl = $state('');
+	let importSheetName = $state('퀘스트');
+	let importLoading = $state(false);
+	let importResult = $state<{
+		quests_created: number;
+		quests_updated: number;
+		scores_created: number;
+		scores_updated: number;
+		errors: string[];
+	} | null>(null);
+
 	// Students & Bonus scores
 	let students = $state<Student[]>([]);
 	let bonusScores = $state<BonusScoreOut[]>([]);
@@ -37,6 +91,8 @@
 
 	onMount(async () => {
 		if (!$isLoggedIn) { goto(`${base}/login`); return; }
+		// Auto-sync students in background (silent), then load everything
+		api.post(`/api/v1/admin/sync/students/${courseId}`).catch(() => {});
 		await Promise.all([loadQuests(), loadStudents(), loadBonusScores()]);
 	});
 
@@ -44,22 +100,11 @@
 		loading = true;
 		try {
 			quests = await api.get<Quest[]>(`/api/v1/facilitator/courses/${courseId}/quests`);
+			selectedQuestIds = new Set();
 		} catch (err) {
 			addToast('퀘스트 목록을 불러올 수 없습니다.', 'error');
 		} finally {
 			loading = false;
-		}
-	}
-
-	async function syncStudents() {
-		syncing = true;
-		try {
-			await api.post(`/api/v1/admin/sync/students/${courseId}`);
-			addToast('학생 명단이 동기화되었습니다.', 'success');
-		} catch (err) {
-			addToast('학생 동기화에 실패했습니다.', 'error');
-		} finally {
-			syncing = false;
 		}
 	}
 
@@ -114,6 +159,51 @@
 			await loadBonusScores();
 		} catch {
 			addToast('비정규 점수 삭제에 실패했습니다.', 'error');
+		}
+	}
+
+	function extractSpreadsheetId(input: string): string {
+		// Accept full URL or bare ID
+		const match = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+		return match ? match[1] : input.trim();
+	}
+
+	function openImportModal() {
+		importUrl = '';
+		importSheetName = '퀘스트';
+		importResult = null;
+		showImportModal = true;
+	}
+
+	async function handleImportSheet() {
+		const spreadsheetId = extractSpreadsheetId(importUrl);
+		if (!spreadsheetId) {
+			addToast('스프레드시트 URL 또는 ID를 입력해주세요.', 'error');
+			return;
+		}
+		importLoading = true;
+		importResult = null;
+		try {
+			const res = await api.post<{
+				quests_created: number;
+				quests_updated: number;
+				scores_created: number;
+				scores_updated: number;
+				errors: string[];
+			}>(`/api/v1/facilitator/courses/${courseId}/import-sheet`, {
+				spreadsheet_id: spreadsheetId,
+				sheet_name: importSheetName.trim() || '퀘스트'
+			});
+			importResult = res;
+			addToast(
+				`가져오기 완료: 퀘스트 ${res.quests_created}개 생성, ${res.quests_updated}개 갱신 / 점수 ${res.scores_created}개 생성, ${res.scores_updated}개 갱신`,
+				res.errors.length > 0 ? 'error' : 'success'
+			);
+			await loadQuests();
+		} catch {
+			addToast('시트 가져오기에 실패했습니다.', 'error');
+		} finally {
+			importLoading = false;
 		}
 	}
 
@@ -186,11 +276,10 @@
 			<h1 class="text-2xl font-bold text-gray-800">퀘스트 관리</h1>
 			<div class="flex gap-2">
 				<button
-					onclick={syncStudents}
-					disabled={syncing}
-					class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors cursor-pointer"
+					onclick={openImportModal}
+					class="px-3 py-2 text-sm border border-green-600 text-green-700 rounded-lg hover:bg-green-50 transition-colors cursor-pointer"
 				>
-					{syncing ? '동기화 중...' : '학생 동기화'}
+					📥 시트에서 가져오기
 				</button>
 				<button
 					onclick={openCreateModal}
@@ -210,42 +299,72 @@
 			<p class="text-sm">위의 "+ 퀘스트 추가" 버튼으로 퀘스트를 생성하세요.</p>
 		</div>
 	{:else}
-		<div class="space-y-3">
-			{#each quests.sort((a, b) => a.quest_number - b.quest_number) as quest}
-				<div
-					class="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-between hover:shadow-sm transition-shadow"
+		<!-- Selection toolbar -->
+		<div class="flex items-center justify-between mb-3 px-1">
+			<label class="flex items-center gap-2 cursor-pointer select-none">
+				<input
+					type="checkbox"
+					checked={allSelected}
+					onchange={toggleSelectAll}
+					class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+				/>
+				<span class="text-sm text-gray-600">전체 선택 ({selectedQuestIds.size}/{quests.length})</span>
+			</label>
+			{#if selectedQuestIds.size > 0}
+				<button
+					onclick={batchDeleteQuests}
+					disabled={batchDeleting}
+					class="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors cursor-pointer"
 				>
-					<button
-						class="flex-1 text-left cursor-pointer"
-						onclick={() => goto(`${base}/facilitator/quests/${quest.id}`)}
-					>
-						<div class="flex items-center gap-3">
-							<span class="text-lg font-bold text-gray-400">#{quest.quest_number}</span>
-							<div>
-								<span class="font-medium text-gray-800"
-									>{quest.title || QUEST_TYPE_LABELS[quest.quest_type]}</span
-								>
-								<div class="flex items-center gap-2 mt-1 text-xs">
-									<span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
-										{QUEST_TYPE_LABELS[quest.quest_type]}
-									</span>
-									<span class="text-gray-400">{quest.quest_date}</span>
-									<span class="text-gray-400">·</span>
-									<span class={quest.graded_count === quest.total_students && quest.total_students > 0 ? 'text-green-600 font-medium' : 'text-gray-500'}>
-										채점 {quest.graded_count}/{quest.total_students}
-									</span>
-									{#if quest.total_students > 0}
-										<div class="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-											<div
-												class="h-full rounded-full transition-all {quest.graded_count === quest.total_students ? 'bg-green-500' : 'bg-blue-500'}"
-												style="width: {(quest.graded_count / quest.total_students) * 100}%"
-											></div>
-										</div>
-									{/if}
+					{batchDeleting ? '삭제 중...' : `선택 삭제 (${selectedQuestIds.size})`}
+				</button>
+			{/if}
+		</div>
+
+		<div class="space-y-3">
+			{#each [...quests].sort((a, b) => a.quest_number - b.quest_number) as quest}
+				<div
+					class="bg-white rounded-lg border p-4 flex items-center justify-between hover:shadow-sm transition-shadow {selectedQuestIds.has(quest.id) ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}"
+				>
+					<div class="flex items-center gap-3 flex-1">
+						<input
+							type="checkbox"
+							checked={selectedQuestIds.has(quest.id)}
+							onchange={() => toggleSelectQuest(quest.id)}
+							class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer flex-shrink-0"
+						/>
+						<button
+							class="flex-1 text-left cursor-pointer"
+							onclick={() => goto(`${base}/facilitator/quests/${quest.id}`)}
+						>
+							<div class="flex items-center gap-3">
+								<span class="text-lg font-bold text-gray-400">#{quest.quest_number}</span>
+								<div>
+									<span class="font-medium text-gray-800"
+										>{quest.title || QUEST_TYPE_LABELS[quest.quest_type]}</span
+									>
+									<div class="flex items-center gap-2 mt-1 text-xs">
+										<span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
+											{QUEST_TYPE_LABELS[quest.quest_type]}
+										</span>
+										<span class="text-gray-400">{quest.quest_date}</span>
+										<span class="text-gray-400">·</span>
+										<span class={quest.graded_count === quest.total_students && quest.total_students > 0 ? 'text-green-600 font-medium' : 'text-gray-500'}>
+											채점 {quest.graded_count}/{quest.total_students}
+										</span>
+										{#if quest.total_students > 0}
+											<div class="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+												<div
+													class="h-full rounded-full transition-all {quest.graded_count === quest.total_students ? 'bg-green-500' : 'bg-blue-500'}"
+													style="width: {(quest.graded_count / quest.total_students) * 100}%"
+												></div>
+											</div>
+										{/if}
+									</div>
 								</div>
 							</div>
-						</div>
-					</button>
+						</button>
+					</div>
 					<div class="flex gap-1 ml-4">
 						<button
 							onclick={() => openEditModal(quest)}
@@ -433,6 +552,87 @@
 					</button>
 				</div>
 			</form>
+		</div>
+	</div>
+{/if}
+
+<!-- Sheet Import Modal -->
+{#if showImportModal}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+		<div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
+			<h2 class="text-lg font-bold text-gray-800 mb-1">📥 시트에서 퀘스트 가져오기</h2>
+			<p class="text-xs text-gray-500 mb-4">
+				Google 스프레드시트의 "퀘스트" 시트에서 퀘스트 목록과 점수를 자동으로 가져옵니다.
+			</p>
+
+			<div class="space-y-4">
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-1">스프레드시트 URL 또는 ID</label>
+					<input
+						type="text"
+						bind:value={importUrl}
+						placeholder="https://docs.google.com/spreadsheets/d/... 또는 ID"
+						class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+					/>
+				</div>
+
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-1">시트 이름</label>
+					<input
+						type="text"
+						bind:value={importSheetName}
+						placeholder="퀘스트"
+						class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+					/>
+					<p class="text-xs text-gray-400 mt-1">기본값: "퀘스트"</p>
+				</div>
+
+				{#if importResult}
+					<div class="rounded-lg border p-3 {importResult.errors.length > 0 ? 'border-yellow-300 bg-yellow-50' : 'border-green-300 bg-green-50'}">
+						<p class="text-sm font-medium {importResult.errors.length > 0 ? 'text-yellow-800' : 'text-green-800'} mb-2">
+							가져오기 결과
+						</p>
+						<div class="grid grid-cols-2 gap-1 text-xs">
+							<span class="text-gray-600">퀘스트 생성:</span>
+							<span class="font-medium">{importResult.quests_created}개</span>
+							<span class="text-gray-600">퀘스트 갱신:</span>
+							<span class="font-medium">{importResult.quests_updated}개</span>
+							<span class="text-gray-600">점수 생성:</span>
+							<span class="font-medium">{importResult.scores_created}개</span>
+							<span class="text-gray-600">점수 갱신:</span>
+							<span class="font-medium">{importResult.scores_updated}개</span>
+						</div>
+						{#if importResult.errors.length > 0}
+							<div class="mt-2 pt-2 border-t border-yellow-200">
+								<p class="text-xs font-medium text-yellow-700 mb-1">오류 ({importResult.errors.length}건):</p>
+								<ul class="text-xs text-yellow-600 space-y-0.5 max-h-24 overflow-y-auto">
+									{#each importResult.errors as err}
+										<li>· {err}</li>
+									{/each}
+								</ul>
+							</div>
+						{/if}
+					</div>
+				{/if}
+
+				<div class="flex gap-2 pt-2">
+					<button
+						type="button"
+						onclick={() => (showImportModal = false)}
+						class="flex-1 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 cursor-pointer"
+					>
+						{importResult ? '닫기' : '취소'}
+					</button>
+					<button
+						type="button"
+						onclick={handleImportSheet}
+						disabled={importLoading || !importUrl.trim()}
+						class="flex-1 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50 cursor-pointer"
+					>
+						{importLoading ? '가져오는 중...' : '가져오기'}
+					</button>
+				</div>
+			</div>
 		</div>
 	</div>
 {/if}

@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     N8N_LEGACY_DB_WEBHOOK_URL: str = ""
     N8N_LEGACY_DB_AUTH_USER: str = ""
     N8N_LEGACY_DB_AUTH_PASS: str = ""
+    GOOGLE_CREDENTIALS_PATH: str = ""
     JWT_SECRET: str = "dev-secret-change-me"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_HOURS: int = 24
