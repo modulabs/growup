@@ -22,6 +22,11 @@
 	let totalQuests = $derived(data?.scores.length || 0);
 	let completedQuests = $derived(data?.scores.filter((s) => s.is_submitted).length || 0);
 
+	let totalMainQuests = $derived(
+		data?.scores.filter((s) => ['main', 'datathon', 'ideathon'].includes(s.quest_type)).length || 0
+	);
+	let completedRubrics = $derived(rubricData?.tasks.length || 0);
+
 	let rubricTotalScore = $derived(
 		rubricData?.tasks.reduce((sum: number, t: TaskRubricOut) => sum + t.total_human + t.total_gpt, 0) || 0
 	);
@@ -192,7 +197,29 @@
 					<p class="text-xs text-gray-400 mt-2">{completedQuests} / {totalQuests} 완료</p>
 				</div>
 
-				<div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col justify-center">
+				<!-- Rubric Progress -->
+				<div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col justify-center items-center text-center">
+					<div class="text-gray-500 text-sm font-medium mb-2">루브릭 진행률</div>
+					<div class="relative w-24 h-24 flex items-center justify-center">
+						<svg class="w-full h-full transform -rotate-90">
+							<circle cx="48" cy="48" r="40" stroke="currentColor" stroke-width="8" fill="transparent" class="text-gray-100" />
+							<circle 
+								cx="48" cy="48" r="40" 
+								stroke="currentColor" stroke-width="8" 
+								fill="transparent" 
+								stroke-dasharray={2 * Math.PI * 40} 
+								stroke-dashoffset={2 * Math.PI * 40 * (1 - (totalMainQuests > 0 ? completedRubrics / totalMainQuests : 0))} 
+								class="text-purple-500 transition-all duration-1000" 
+							/>
+						</svg>
+						<span class="absolute text-xl font-bold text-gray-700">
+							{totalMainQuests > 0 ? Math.round(completedRubrics/totalMainQuests*100) : 0}%
+						</span>
+					</div>
+					<p class="text-xs text-gray-400 mt-2">{completedRubrics} / {totalMainQuests} 완료</p>
+				</div>
+
+				<div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col justify-center col-span-2">
 					<p class="text-sm text-gray-500 font-medium mb-1">총 획득 점수</p>
 					<span class="text-4xl font-bold text-gray-800 mb-1">{data.total_score}</span>
 					<div class="text-xs text-gray-400 flex flex-col gap-1">
