@@ -7,7 +7,7 @@
 	import { isLoggedIn, activeCourses } from '$lib/stores/auth';
 	import { addToast } from '$lib/stores/toast';
 	import { SCORE_RULES, QUEST_TYPE_LABELS } from '$lib/types';
-	import type { CourseScoreSummary, StudentRubricResponse } from '$lib/types';
+	import type { CourseScoreSummary, StudentRubricResponse, TaskRubricOut } from '$lib/types';
 	import LoadingSkeleton from '$lib/components/LoadingSkeleton.svelte';
 
 	let loading = $state(true);
@@ -22,6 +22,14 @@
 	let totalQuests = $derived(data?.scores.length || 0);
 	let completedQuests = $derived(data?.scores.filter((s) => s.is_submitted).length || 0);
 
+	let rubricTotalScore = $derived(
+		rubricData?.tasks.reduce((sum: number, t: TaskRubricOut) => sum + t.total_human + t.total_gpt, 0) || 0
+	);
+
+	let rubricMaxScore = $derived(
+		rubricData?.tasks.reduce((sum: number, t: TaskRubricOut) => sum + t.rubric_items.length * 2, 0) || 0
+	);
+
 	let growthTemp = $derived.by(() => {
 		if (!data || totalQuests === 0) return 0;
 		// Participation (60%)
@@ -32,7 +40,12 @@
 			const rule = SCORE_RULES[s.quest_type] || SCORE_RULES['main'];
 			maxPossibleScore += rule.max;
 		});
-		const quality = maxPossibleScore > 0 ? (data.total_quest_score / maxPossibleScore) * 100 : 0;
+
+		// Merge Rubric Scores into Quality
+		const totalObtained = data.total_quest_score + rubricTotalScore;
+		const totalMax = maxPossibleScore + rubricMaxScore;
+
+		const quality = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0;
 		return Math.round(participation * 0.6 + quality * 0.4);
 	});
 
