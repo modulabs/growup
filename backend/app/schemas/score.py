@@ -90,3 +90,4 @@ class StudentRubricResponse(BaseModel):
     course_name: str
     student_name: str = ""
     tasks: List[TaskRubricOut]
+    total_rubric_tasks: int = 0

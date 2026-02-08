@@ -22,14 +22,13 @@
 	let totalQuests = $derived(data?.scores.length || 0);
 	let completedQuests = $derived(data?.scores.filter((s) => s.is_submitted).length || 0);
 
-	let totalMainQuests = $derived(
-		data?.scores.filter((s) => ['main', 'datathon', 'ideathon'].includes(s.quest_type)).length || 0
-	);
 	let completedRubrics = $derived(rubricData?.tasks.length || 0);
+	let totalRubrics = $derived(rubricData?.total_rubric_tasks || 0);
 
 	let rubricTotalScore = $derived(
-		rubricData?.tasks.reduce((sum: number, t: TaskRubricOut) => sum + t.total_human + t.total_gpt, 0) || 0
+		rubricData?.tasks.reduce((sum, t) => sum + t.total_human + t.total_gpt, 0) || 0
 	);
+
 
 	let rubricMaxScore = $derived(
 		rubricData?.tasks.reduce((sum: number, t: TaskRubricOut) => sum + t.rubric_items.length * 2, 0) || 0

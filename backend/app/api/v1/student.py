@@ -19,7 +19,10 @@ from app.schemas.score import (
     StudentScoreRow,
     TaskRubricOut,
 )
-from app.services.legacy_service import get_rubric_scores_for_student
+from app.services.legacy_service import (
+    get_rubric_scores_for_student,
+    get_total_rubric_count,
+)
 
 router = APIRouter(tags=["student"])
 
@@ -106,7 +109,11 @@ async def my_scores(
     total_bonus = 0.0
     for b in bonus_items:
         total_bonus += float(b.score)
-        giver = await db.get(CachedUser, b.given_by_legacy_user_id)
+        giver_name = b.given_by_name
+        if not giver_name:
+            giver = await db.get(CachedUser, b.given_by_legacy_user_id)
+            giver_name = giver.name if giver else ""
+
         bonus_out.append(
             BonusScoreOut(
                 id=str(b.id),
@@ -114,7 +121,7 @@ async def my_scores(
                 legacy_student_id=b.legacy_student_id,
                 score=float(b.score),
                 reason=b.reason,
-                given_by_name=giver.name if giver else "",
+                given_by_name=giver_name,
                 given_at=b.given_at.isoformat() if b.given_at else "",
             )
         )
@@ -183,9 +190,12 @@ async def my_rubrics(
         )
 
     user = await db.get(CachedUser, uid)
+    total_rubrics = await get_total_rubric_count(course.legacy_user_group_id)
+
     return StudentRubricResponse(
         legacy_course_id=course_id,
         course_name=course.name,
         student_name=user.name if user else "",
         tasks=tasks,
+        total_rubric_tasks=total_rubrics,
     )

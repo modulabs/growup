@@ -190,6 +190,28 @@ async def get_rubric_scores_all_students(
     return await _query_legacy(sql)
 
 
+async def get_total_rubric_count(user_group_id: int) -> int:
+    """Get the total number of rubric-bearing tasks for a course group."""
+    sql_courses = f"SELECT course_id FROM user_group_course_mapping WHERE user_group_id = {user_group_id}"
+    courses = await _query_legacy(sql_courses)
+    if not courses:
+        return 0
+    course_ids = [str(c["course_id"]) for c in courses]
+    course_ids_str = ", ".join(course_ids)
+
+    sql = f"""
+    SELECT COUNT(DISTINCT n.id) as count
+    FROM core_node n
+    JOIN core_nodeschedule ns ON n.id = ns.node_id
+    JOIN core_nodeversion nv ON ns.node_version_id = nv.id
+    JOIN core_coursenodeversionrelation cnvr ON nv.id = cnvr.node_version_id
+    JOIN core_rubric r ON r.node_id = n.id
+    WHERE cnvr.course_id IN ({course_ids_str})
+    """
+    res = await _query_legacy(sql)
+    return int(res[0]["count"]) if res else 0
+
+
 async def list_students_by_course(user_group_id: int) -> List[Dict[str, Any]]:
     """List active students enrolled in a specific course (user_group).
     Excludes dropout students (status=INACTIVE with dropout_at set)."""

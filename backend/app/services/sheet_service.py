@@ -328,6 +328,115 @@ def _parse_score_cell(val: str, quest_type: str) -> tuple[Optional[Decimal], boo
         return None, False
 
 
+def _col_idx_to_a1(idx: int) -> str:
+    """Convert 0-based column index to A1 notation (0->A, 26->AA)."""
+    res = ""
+    while idx >= 0:
+        res = chr(ord("A") + (idx % 26)) + res
+        idx = (idx // 26) - 1
+    return res
+
+
+def _fetch_bonus_notes(
+    spreadsheet_id: str, sheet_name: str, start_col: int, end_col: int
+) -> dict[tuple[int, int], str]:
+    """Fetch cell notes for a specific column range.
+
+    Returns:
+        dict: {(row_idx, col_idx): note_content}
+    """
+    svc = _get_sheets_service()
+    col_a = _col_idx_to_a1(start_col)
+    col_b = _col_idx_to_a1(end_col)
+    range_str = f"{sheet_name}!{col_a}:{col_b}"
+
+    try:
+        resp = (
+            svc.spreadsheets()
+            .get(
+                spreadsheetId=spreadsheet_id,
+                ranges=[range_str],
+                includeGridData=True,
+                fields="sheets(data(startRow,startColumn,rowData(values(note))))",
+            )
+            .execute()
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch notes for range {range_str}: {e}")
+        return {}
+
+    notes = {}
+    sheets = resp.get("sheets", [])
+    if not sheets:
+        return {}
+
+    for sheet in sheets:
+        data_list = sheet.get("data", [])
+        for grid_data in data_list:
+            start_row = grid_data.get("startRow", 0)
+            start_col_grid = grid_data.get("startColumn", 0)
+            row_data = grid_data.get("rowData", [])
+
+            for r_offset, row in enumerate(row_data):
+                row_idx = start_row + r_offset
+                values = row.get("values", [])
+                for c_offset, cell in enumerate(values):
+                    col_idx = start_col_grid + c_offset
+                    note = cell.get("note", "").strip()
+                    if note:
+                        notes[(row_idx, col_idx)] = note
+    return notes
+
+
+def _parse_giver_from_note(note: str) -> Optional[str]:
+    """Extract giver name from note format 'Date/Reason/Score/Giver'.
+
+    Example: "0724/아낌없이주는그루/+2/조웅제" -> "조웅제"
+    Handles multiline notes by picking the first valid giver found or joining unique givers.
+    """
+    if not note:
+        return None
+
+    givers = set()
+    for line in note.split("\n"):
+        parts = line.split("/")
+        if len(parts) >= 4:
+            giver = parts[-1].strip()
+            if giver:
+                givers.add(giver)
+
+    if not givers:
+        return None
+
+    return ", ".join(sorted(givers))
+
+
+def _parse_date_from_note(note: str) -> Optional[datetime]:
+    """Extract date from note format 'Date/Reason/Score/Giver'.
+
+    Example: "0724/..." -> 2025-07-24
+    """
+    if not note:
+        return None
+
+    # Use first line's date
+    line = note.split("\n")[0]
+    parts = line.split("/")
+    if len(parts) >= 1:
+        date_part = parts[0].strip()
+        if len(date_part) == 4 and date_part.isdigit():
+            try:
+                # Assume 2025 for now (Research 14th was 2025)
+                # Ideally, infer from course start date
+                year = 2025
+                month = int(date_part[:2])
+                day = int(date_part[2:])
+                return datetime(year, month, day, tzinfo=timezone.utc)
+            except ValueError:
+                pass
+    return None
+
+
 # ── Name-based student matching ──
 
 
@@ -426,6 +535,14 @@ async def import_from_sheet(
     logger.info(
         f"Parsed {len(parsed_quests)} quest columns and {len(parsed_bonuses)} bonus columns"
     )
+
+    # Fetch notes for bonus columns
+    notes_map: dict[tuple[int, int], str] = {}
+    if parsed_bonuses:
+        min_col = min(pb.col_index for pb in parsed_bonuses)
+        max_col = max(pb.col_index for pb in parsed_bonuses)
+        logger.info(f"Fetching notes for columns {min_col} to {max_col}")
+        notes_map = _fetch_bonus_notes(spreadsheet_id, sheet_name, min_col, max_col)
 
     # 4. Build name → legacy_user_id mapping
     name_to_ids = await _build_name_to_ids(db, course_id)
@@ -550,6 +667,12 @@ async def import_from_sheet(
 
             score, _ = _parse_score_cell(cell_val, "main")
 
+            # Extract note for giver
+            note_content = notes_map.get((row_idx, pb.col_index), "")
+            giver_name = _parse_giver_from_note(note_content)
+            parsed_date = _parse_date_from_note(note_content)
+            bonus_date = parsed_date if parsed_date else now
+
             if score is not None and score > 0:
                 stmt = select(BonusScore).where(
                     BonusScore.cached_course_id == course_id,
@@ -559,9 +682,14 @@ async def import_from_sheet(
                 existing_bonus = (await db.execute(stmt)).scalar_one_or_none()
 
                 if existing_bonus:
-                    if existing_bonus.score != score:
+                    if (
+                        existing_bonus.score != score
+                        or existing_bonus.given_by_name != giver_name
+                        or existing_bonus.given_at != bonus_date
+                    ):
                         existing_bonus.score = score
-                        existing_bonus.given_at = now
+                        existing_bonus.given_by_name = giver_name
+                        existing_bonus.given_at = bonus_date
                         result.scores_updated += 1
                 else:
                     new_bonus = BonusScore(
@@ -570,7 +698,8 @@ async def import_from_sheet(
                         score=score,
                         reason=pb.reason,
                         given_by_legacy_user_id=facilitator_id,
-                        given_at=now,
+                        given_by_name=giver_name,
+                        given_at=bonus_date,
                     )
                     db.add(new_bonus)
                     result.scores_created += 1

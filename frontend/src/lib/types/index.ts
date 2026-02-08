@@ -134,4 +134,5 @@ export interface StudentRubricResponse {
 	course_name: string;
 	student_name: string;
 	tasks: TaskRubricOut[];
+	total_rubric_tasks: number;
 }
