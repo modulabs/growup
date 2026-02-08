@@ -47,4 +47,6 @@ class SheetImportResponse(BaseModel):
     quests_updated: int = 0
     scores_created: int = 0
     scores_updated: int = 0
+    students_matched: int = 0
+    students_unmatched: int = 0
     errors: list[str] = []

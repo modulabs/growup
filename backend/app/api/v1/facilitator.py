@@ -608,5 +608,7 @@ async def import_sheet(
         quests_updated=result.quests_updated,
         scores_created=result.scores_created,
         scores_updated=result.scores_updated,
+        students_matched=result.students_matched,
+        students_unmatched=result.students_unmatched,
         errors=result.errors,
     )

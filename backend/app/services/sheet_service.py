@@ -1,22 +1,31 @@
 """Google Sheets → Quest & Score import service.
 
-Reads a '퀘스트' sheet from a course-specific spreadsheet and upserts
+Reads a quest sheet from a course-specific spreadsheet and upserts
 Quest + QuestScore rows into the GrowUp DB.
 
-Sheet layout (columns A~F = student info, G~ = quests):
-  Row 1 (G~): quest name — "QUEST_XX (B/C)" → sub, "Main QUEST_XX" → main
-  Row 2 (G~): quest date  — YYYY-MM-DD
-  Row 3+:     student rows
-    Col A: legacy user id (고유번호)
-    Col B: student name
-    G~:    score values — "P"=1, "F"=0, "미제출"=unsubmitted,
-           numeric=score, "0점/미제출"=unsubmitted
+Supports two sheet layouts:
+
+Layout A (DS7기, 리서치15기):
+  Row 0 header: [고유번호, 이름, 길드, 과정, 세부과정, 훈련상태, 퀘스트명, Sub Quest 01, ...]
+  Row 1 dates:  [..., ..., ..., ..., ..., ..., 시행일자, 2025-11-17, ...]
+  Row 2+:       student data rows
+  Quest cols start at G (index 7), Col G is a label column ("퀘스트명")
+
+Layout B (온라인4기, 퀘스트&출결):
+  Row 0 header: [학번, 이름, 길드, 과정, 상태, QUEST_01, QUEST_02, ...]
+  Row 1+:       student data rows (no date row)
+  Quest cols start at F (index 5)
+
+Student matching: Uses **name** (Col B for both layouts) to look up
+legacy_user_id from cached_users + cached_enrollments. The sheet's Col A
+(고유번호/학번) is NOT the Legacy DB user_id.
 """
 
 from __future__ import annotations
 
 import logging
 import re
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -29,7 +38,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.models.cache import CachedEnrollment
+from app.models.cache import CachedEnrollment, CachedUser
 from app.models.quest import Quest, QuestScore
 
 logger = logging.getLogger(__name__)
@@ -68,12 +77,80 @@ def read_sheet(spreadsheet_id: str, sheet_name: str = "퀘스트") -> list[list[
     return result.get("values", [])
 
 
+# ── Layout detection ──
+
+
+@dataclass
+class SheetLayout:
+    name_col: int = 1  # Column index for student name
+    quest_start_col: int = 7  # First quest column index
+    has_date_row: bool = True  # Whether row 1 has dates
+    student_start_row: int = 2  # First student data row index
+    layout_type: str = "A"  # "A" or "B"
+
+
+def _detect_layout(rows: list[list[str]]) -> SheetLayout:
+    """Auto-detect the sheet layout from the header row."""
+    if not rows:
+        return SheetLayout()
+
+    header = rows[0]
+    first_cell = (header[0].strip() if header else "").lower()
+
+    # Layout B: starts with "학번"
+    if first_cell == "학번":
+        return SheetLayout(
+            name_col=1,
+            quest_start_col=5,
+            has_date_row=False,
+            student_start_row=1,
+            layout_type="B",
+        )
+
+    # Layout A: check for "퀘스트명" or "퀘스트" label in col F/G area
+    if len(header) > 6:
+        col6 = header[6].strip() if len(header) > 6 else ""
+        if col6 in ("퀘스트명", "퀘스트"):
+            return SheetLayout(
+                name_col=1,
+                quest_start_col=7,
+                has_date_row=True,
+                student_start_row=2,
+                layout_type="A",
+            )
+
+    # Default: assume Layout A
+    return SheetLayout()
+
+
 # ── Parsing helpers ──
 
-_QUEST_SUB_RE = re.compile(r"QUEST[_\s]*(\d+)\s*\(([BC])\)", re.IGNORECASE)
+# Layout A patterns
+_QUEST_SUB_NAMED_RE = re.compile(r"Sub\s+Quest\s*(\d+)", re.IGNORECASE)
+_QUEST_SUB_TAG_RE = re.compile(r"QUEST[_\s]*(\d+)\s*\(([A-C])\)", re.IGNORECASE)
 _QUEST_MAIN_RE = re.compile(r"Main\s+QUEST[_\s]*(\d+)", re.IGNORECASE)
-_QUEST_DATATHON_RE = re.compile(r"(?:데이터톤|datathon)", re.IGNORECASE)
+_QUEST_DATATHON_RE = re.compile(r"(?:데이터톤|datathon|DATAthon|DLthon)", re.IGNORECASE)
 _QUEST_IDEATHON_RE = re.compile(r"(?:아이디어톤|ideathon)", re.IGNORECASE)
+
+# Layout B pattern: bare QUEST_XX (no tag, no "Main" prefix)
+_QUEST_BARE_RE = re.compile(r"^QUEST[_\s]*(\d+)$", re.IGNORECASE)
+
+# Non-quest columns to skip
+_SKIP_COLS = {
+    "비정규점수총계",
+    "디스코드",
+    "디스코드 소통왕",
+    "아낌없이 주는 그루",
+    "쉐밸그투",
+    "퍼실재량점수",
+    "TOTAL",
+    "신호등",
+    "총점",
+    "퀘스트 점수",
+    "비정규점수",
+    "퀘스트 보상",
+    "출결",
+}
 
 
 @dataclass
@@ -99,6 +176,8 @@ class SheetImportResult:
     quests_updated: int = 0
     scores_created: int = 0
     scores_updated: int = 0
+    students_matched: int = 0
+    students_unmatched: int = 0
     errors: list[str] = field(default_factory=list)
 
 
@@ -108,17 +187,11 @@ def _parse_quest_header(name: str, col_idx: int) -> Optional[ParsedQuest]:
     if not name:
         return None
 
-    # Sub quest: QUEST_XX (B) or QUEST_XX (C)
-    m = _QUEST_SUB_RE.search(name)
-    if m:
-        return ParsedQuest(
-            col_index=col_idx,
-            quest_type="sub",
-            quest_number=int(m.group(1)),
-            title=name,
-        )
+    # Skip known non-quest columns
+    if name in _SKIP_COLS:
+        return None
 
-    # Main quest: Main QUEST_XX
+    # Main quest: "Main QUEST_XX" — check first to avoid sub-match
     m = _QUEST_MAIN_RE.search(name)
     if m:
         return ParsedQuest(
@@ -128,9 +201,28 @@ def _parse_quest_header(name: str, col_idx: int) -> Optional[ParsedQuest]:
             title=name,
         )
 
+    # Sub quest named: "Sub Quest 01" (DS7기 format)
+    m = _QUEST_SUB_NAMED_RE.search(name)
+    if m:
+        return ParsedQuest(
+            col_index=col_idx,
+            quest_type="sub",
+            quest_number=int(m.group(1)),
+            title=name,
+        )
+
+    # Sub quest tagged: "QUEST_XX (A/B/C)" (리서치15기 format)
+    m = _QUEST_SUB_TAG_RE.search(name)
+    if m:
+        return ParsedQuest(
+            col_index=col_idx,
+            quest_type="sub",
+            quest_number=int(m.group(1)),
+            title=name,
+        )
+
     # Datathon
     if _QUEST_DATATHON_RE.search(name):
-        # Try to extract number
         num_match = re.search(r"(\d+)", name)
         num = int(num_match.group(1)) if num_match else 1
         return ParsedQuest(
@@ -148,6 +240,16 @@ def _parse_quest_header(name: str, col_idx: int) -> Optional[ParsedQuest]:
             col_index=col_idx,
             quest_type="ideathon",
             quest_number=num,
+            title=name,
+        )
+
+    # Bare QUEST_XX (Layout B format, no tag) → sub
+    m = _QUEST_BARE_RE.match(name)
+    if m:
+        return ParsedQuest(
+            col_index=col_idx,
+            quest_type="sub",
+            quest_number=int(m.group(1)),
             title=name,
         )
 
@@ -172,11 +274,18 @@ def _parse_score_cell(val: str, quest_type: str) -> tuple[Optional[Decimal], boo
 
     Returns (score, is_submitted).
     """
-    val = val.strip()
-    if not val or val == "미제출":
+    if val is None:
+        return None, False
+
+    val = str(val).strip()
+    if not val or val == "미제출" or val.lower() == "null":
         return None, False
 
     if val == "0점/미제출":
+        return None, False
+
+    # Skip N/A markers
+    if val.upper() in ("#N/A", "N/A", "#REF!", "#VALUE!", "#DIV/0!"):
         return None, False
 
     upper = val.upper()
@@ -191,6 +300,34 @@ def _parse_score_cell(val: str, quest_type: str) -> tuple[Optional[Decimal], boo
         return num, True
     except Exception:
         return None, False
+
+
+# ── Name-based student matching ──
+
+
+async def _build_name_to_ids(db: AsyncSession, course_id: int) -> dict[str, list[int]]:
+    """Build a mapping from student name → list of legacy_user_ids
+    for students enrolled in the given course.
+
+    Uses cached_users + cached_enrollments.
+    """
+    stmt = (
+        select(CachedUser.legacy_user_id, CachedUser.name)
+        .join(
+            CachedEnrollment,
+            CachedEnrollment.legacy_user_id == CachedUser.legacy_user_id,
+        )
+        .where(CachedEnrollment.legacy_course_id == course_id)
+    )
+    rows = (await db.execute(stmt)).all()
+
+    name_map: dict[str, list[int]] = defaultdict(list)
+    for user_id, name in rows:
+        clean_name = name.strip()
+        if clean_name:
+            name_map[clean_name].append(user_id)
+
+    return dict(name_map)
 
 
 # ── Main import function ──
@@ -213,48 +350,68 @@ async def import_from_sheet(
         result.errors.append(f"시트 읽기 실패: {e}")
         return result
 
-    if len(rows) < 2:
-        result.errors.append("시트에 데이터가 부족합니다 (최소 2행 필요).")
+    if not rows:
+        result.errors.append("시트가 비어있습니다.")
         return result
 
-    row_headers = rows[0]  # Row 1: quest names
-    row_dates = rows[1] if len(rows) > 1 else []  # Row 2: dates
+    # 2. Detect layout
+    layout = _detect_layout(rows)
+    logger.info(
+        f"Sheet layout detected: type={layout.layout_type}, "
+        f"quest_start={layout.quest_start_col}, "
+        f"has_date_row={layout.has_date_row}, "
+        f"student_start={layout.student_start_row}"
+    )
 
-    # 2. Parse quest columns (starting from col G = index 6)
-    quest_start_col = 6
+    min_rows = layout.student_start_row + 1
+    if len(rows) < min_rows:
+        result.errors.append(f"시트에 데이터가 부족합니다 (최소 {min_rows}행 필요).")
+        return result
+
+    row_headers = rows[0]
+
+    # 3. Parse quest columns
     parsed_quests: list[ParsedQuest] = []
 
-    for col_idx in range(quest_start_col, len(row_headers)):
+    for col_idx in range(layout.quest_start_col, len(row_headers)):
         pq = _parse_quest_header(row_headers[col_idx], col_idx)
         if pq is None:
             continue
-        # Attach date from row 2
-        if col_idx < len(row_dates):
-            pq.quest_date = _parse_date(row_dates[col_idx])
+
+        # Attach date from row 1 (Layout A only)
+        if layout.has_date_row and len(rows) > 1:
+            row_dates = rows[1]
+            if col_idx < len(row_dates):
+                pq.quest_date = _parse_date(row_dates[col_idx])
+
         if pq.quest_date is None:
             pq.quest_date = date.today()
+
         parsed_quests.append(pq)
 
     if not parsed_quests:
         result.errors.append(
-            "퀘스트 컬럼을 찾을 수 없습니다 (G열부터 QUEST_XX 패턴 필요)."
+            "퀘스트 컬럼을 찾을 수 없습니다 (헤더에서 QUEST 패턴 미발견)."
         )
         return result
 
-    # 3. Get enrolled students for this course (to validate)
-    enrolled_result = await db.execute(
-        select(CachedEnrollment.legacy_user_id).where(
-            CachedEnrollment.legacy_course_id == course_id
-        )
-    )
-    enrolled_ids = {r for r in enrolled_result.scalars().all()}
+    logger.info(f"Parsed {len(parsed_quests)} quest columns from sheet")
 
-    # 4. Upsert quests
+    # 4. Build name → legacy_user_id mapping
+    name_to_ids = await _build_name_to_ids(db, course_id)
+    if not name_to_ids:
+        result.errors.append(
+            "이 과정에 등록된 학생이 없습니다. 먼저 학생 동기화를 실행하세요."
+        )
+        return result
+
+    logger.info(f"Name mapping built: {len(name_to_ids)} enrolled students")
+
+    # 5. Upsert quests
     quest_map: dict[int, Quest] = {}  # col_index → Quest object
     now = datetime.now(timezone.utc)
 
     for pq in parsed_quests:
-        # Check existing quest by (course_id, quest_type, quest_number)
         stmt = select(Quest).where(
             Quest.cached_course_id == course_id,
             Quest.quest_type == pq.quest_type,
@@ -263,7 +420,6 @@ async def import_from_sheet(
         existing = (await db.execute(stmt)).scalar_one_or_none()
 
         if existing:
-            # Update date and title if changed
             changed = False
             if existing.quest_date != pq.quest_date:
                 existing.quest_date = pq.quest_date
@@ -289,25 +445,35 @@ async def import_from_sheet(
             quest_map[pq.col_index] = new_quest
             result.quests_created += 1
 
-    # 5. Parse student rows (row index 2+ = rows[2:])
-    for row_idx in range(2, len(rows)):
+    # 6. Parse student rows
+    matched_students = set()
+    unmatched_names = set()
+
+    for row_idx in range(layout.student_start_row, len(rows)):
         row = rows[row_idx]
-        if len(row) < 2:
+        if len(row) <= layout.name_col:
             continue
 
-        # Col A = legacy user id (고유번호)
-        raw_id = row[0].strip() if row[0] else ""
-        if not raw_id:
-            continue
-        try:
-            student_id = int(raw_id)
-        except ValueError:
-            # Not a numeric ID, skip
+        # Get student name
+        student_name = row[layout.name_col].strip() if row[layout.name_col] else ""
+        if not student_name:
             continue
 
-        # Only process enrolled students
-        if student_id not in enrolled_ids:
+        # Look up legacy_user_id by name
+        ids = name_to_ids.get(student_name)
+        if not ids:
+            unmatched_names.add(student_name)
             continue
+
+        # Use first matched ID (if multiple, log warning)
+        student_id = ids[0]
+        if len(ids) > 1:
+            logger.warning(
+                f"Student name '{student_name}' matches multiple IDs: {ids}. "
+                f"Using first: {student_id}"
+            )
+
+        matched_students.add(student_name)
 
         # Parse scores for each quest column
         for pq in parsed_quests:
@@ -328,10 +494,8 @@ async def import_from_sheet(
             )
             existing_score = (await db.execute(score_stmt)).scalar_one_or_none()
 
-            score_decimal = score if score is not None else None
-
             if existing_score:
-                existing_score.score = score_decimal
+                existing_score.score = score if score is not None else None
                 existing_score.is_submitted = is_submitted
                 existing_score.graded_by_legacy_user_id = facilitator_id
                 existing_score.graded_at = now
@@ -340,7 +504,7 @@ async def import_from_sheet(
                 new_score = QuestScore(
                     quest_id=quest.id,
                     legacy_student_id=student_id,
-                    score=score_decimal,
+                    score=score if score is not None else None,
                     is_submitted=is_submitted,
                     graded_by_legacy_user_id=facilitator_id,
                     graded_at=now,
@@ -348,5 +512,27 @@ async def import_from_sheet(
                 db.add(new_score)
                 result.scores_created += 1
 
+    result.students_matched = len(matched_students)
+    result.students_unmatched = len(unmatched_names)
+
+    if unmatched_names:
+        sample = sorted(unmatched_names)[:10]
+        logger.warning(f"Unmatched students ({len(unmatched_names)}): {sample}")
+        if len(unmatched_names) <= 10:
+            result.errors.append(
+                f"매칭 실패 학생 {len(unmatched_names)}명: {', '.join(sample)}"
+            )
+        else:
+            result.errors.append(
+                f"매칭 실패 학생 {len(unmatched_names)}명 (일부: {', '.join(sample)}...)"
+            )
+
     await db.commit()
+
+    logger.info(
+        f"Import complete: quests={result.quests_created}c/{result.quests_updated}u, "
+        f"scores={result.scores_created}c/{result.scores_updated}u, "
+        f"students matched={result.students_matched}, unmatched={result.students_unmatched}"
+    )
+
     return result
