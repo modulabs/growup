@@ -100,7 +100,8 @@ async def list_active_courses() -> List[Dict[str, Any]]:
 
 
 async def list_students_by_course(user_group_id: int) -> List[Dict[str, Any]]:
-    """List students enrolled in a specific course (user_group)."""
+    """List active students enrolled in a specific course (user_group).
+    Excludes dropout students (status=INACTIVE with dropout_at set)."""
     sql = f"""
     SELECT
         cu.id AS user_id,
@@ -110,6 +111,8 @@ async def list_students_by_course(user_group_id: int) -> List[Dict[str, Any]]:
     JOIN core_user cu ON ugm.user_id = cu.id
     WHERE ugm.user_group_id = {user_group_id}
       AND ugm.role = 'MEMBER'
+      AND ugm.status = 'ACTIVE'
+      AND ugm.dropout_at IS NULL
       AND TRIM(COALESCE(cu.first_name, '')) != ''
     ORDER BY cu.first_name
     """

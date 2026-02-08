@@ -69,8 +69,8 @@ async def sync_courses(db: AsyncSession) -> list[CachedCourse]:
 async def sync_students_for_course(
     db: AsyncSession, user_group_id: int
 ) -> list[CachedUser]:
-    """Sync students for a specific course from Legacy DB."""
     rows = await legacy_service.list_students_by_course(user_group_id)
+    active_user_ids = set()
     synced = []
     for row in rows:
         uid = row.get("user_id")
@@ -78,6 +78,7 @@ async def sync_students_for_course(
         if not uid or not name:
             continue
         uid = int(uid)
+        active_user_ids.add(uid)
         existing = await db.get(CachedUser, uid)
         if existing:
             existing.name = row.get("name", existing.name)
@@ -92,9 +93,18 @@ async def sync_students_for_course(
             )
             db.add(existing)
         synced.append(existing)
-        # Upsert enrollment
         enrollment_exists = await db.get(CachedEnrollment, (uid, user_group_id))
         if not enrollment_exists:
             db.add(CachedEnrollment(legacy_user_id=uid, legacy_course_id=user_group_id))
+
+    existing_enrollments = await db.execute(
+        select(CachedEnrollment).where(
+            CachedEnrollment.legacy_course_id == user_group_id
+        )
+    )
+    for enrollment in existing_enrollments.scalars().all():
+        if enrollment.legacy_user_id not in active_user_ids:
+            await db.delete(enrollment)
+
     await db.commit()
     return synced
