@@ -6,8 +6,19 @@
 	import LoadingSkeleton from '$lib/components/LoadingSkeleton.svelte';
 
 	onMount(() => {
-		if (!$isLoggedIn) goto(`${base}/login`);
-		if ($userRole !== 'student') goto(`${base}/facilitator`);
+		if (!$isLoggedIn) {
+			goto(`${base}/login`);
+			return;
+		}
+		if ($userRole !== 'student') {
+			goto(`${base}/facilitator`);
+			return;
+		}
+
+		// Auto-redirect if student has only one course
+		if ($activeCourses.length === 1) {
+			goto(`${base}/student/${$activeCourses[0].legacy_course_id}`);
+		}
 	});
 </script>
 

@@ -7,7 +7,7 @@
 	import { isLoggedIn } from '$lib/stores/auth';
 	import { addToast } from '$lib/stores/toast';
 	import { QUEST_TYPE_LABELS } from '$lib/types';
-	import type { Quest, Student, BonusScoreOut } from '$lib/types';
+	import type { Quest, Student, BonusScoreOut, StudentRubricResponse } from '$lib/types';
 	import LoadingSkeleton from '$lib/components/LoadingSkeleton.svelte';
 
 	let loading = $state(true);
@@ -88,6 +88,28 @@
 	let bonusScoreValue = $state<number>(0);
 	let bonusReason = $state('');
 	let bonusSubmitting = $state(false);
+
+	// Rubric View Modal
+	let showStudentModal = $state(false);
+	let selectedStudent = $state<Student | null>(null);
+	let studentRubricLoading = $state(false);
+	let studentRubricData = $state<StudentRubricResponse | null>(null);
+
+	async function openStudentModal(student: Student) {
+		selectedStudent = student;
+		showStudentModal = true;
+		studentRubricLoading = true;
+		studentRubricData = null;
+		try {
+			studentRubricData = await api.get<StudentRubricResponse>(
+				`/api/v1/facilitator/courses/${courseId}/students/${student.legacy_user_id}/rubrics`
+			);
+		} catch {
+			addToast('루브릭 데이터를 불러올 수 없습니다.', 'error');
+		} finally {
+			studentRubricLoading = false;
+		}
+	}
 
 	onMount(async () => {
 		if (!$isLoggedIn) { goto(`${base}/login`); return; }
@@ -364,8 +386,88 @@
 															class="h-full rounded-full transition-all {quest.graded_count === quest.total_students ? 'bg-green-500' : 'bg-blue-500'}"
 															style="width: {(quest.graded_count / quest.total_students) * 100}%"
 														></div>
-													</div>
-												{/if}
+	</div>
+{/if}
+
+<!-- Student Detail Modal -->
+{#if showStudentModal && selectedStudent}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+		<div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+			<div class="p-5 border-b border-gray-200 flex justify-between items-center">
+				<h2 class="text-lg font-bold text-gray-800">
+					{selectedStudent.name} 학생 상세 정보
+				</h2>
+				<button
+					onclick={() => (showStudentModal = false)}
+					class="text-gray-400 hover:text-gray-600 p-1"
+				>
+					✕
+				</button>
+			</div>
+			
+			<div class="p-6 overflow-y-auto">
+				{#if studentRubricLoading}
+					<LoadingSkeleton type="card" lines={3} />
+				{:else if studentRubricData && studentRubricData.tasks.length > 0}
+					<h3 class="font-medium text-purple-800 mb-4 flex items-center gap-2">
+						<span class="w-2 h-6 bg-purple-600 rounded-full"></span>
+						LMS 루브릭 평가
+					</h3>
+					
+					<div class="space-y-6">
+						{#each studentRubricData.tasks as task}
+							<div class="bg-gray-50 rounded-lg border border-gray-200 p-4">
+								<div class="flex justify-between items-start mb-3">
+									<h4 class="font-medium text-gray-900">{task.task_title}</h4>
+									<div class="flex gap-2">
+										<span class="text-xs font-bold bg-white border border-gray-200 px-2 py-1 rounded text-gray-600">
+											H: {task.total_human}
+										</span>
+										<span class="text-xs font-bold bg-purple-100 border border-purple-200 px-2 py-1 rounded text-purple-700">
+											G: {task.total_gpt}
+										</span>
+									</div>
+								</div>
+
+								{#if task.overall_feedback}
+									<div class="bg-white p-3 rounded border border-gray-200 text-sm text-gray-600 mb-3">
+										{task.overall_feedback}
+									</div>
+								{/if}
+
+								<table class="w-full text-xs">
+									<thead>
+										<tr class="text-gray-500 border-b border-gray-200">
+											<th class="py-2 text-left">항목</th>
+											<th class="py-2 text-center w-10">H</th>
+											<th class="py-2 text-center w-10">G</th>
+											<th class="py-2 text-left">피드백</th>
+										</tr>
+									</thead>
+									<tbody class="divide-y divide-gray-200">
+										{#each task.rubric_items as item}
+											<tr>
+												<td class="py-2 pr-2 text-gray-700 font-medium">{item.rubric_metric}</td>
+												<td class="py-2 text-center text-gray-600">{item.human_score ?? '-'}</td>
+												<td class="py-2 text-center text-purple-600">{item.gpt_score ?? '-'}</td>
+												<td class="py-2 pl-2 text-gray-500">{item.feedback || '-'}</td>
+											</tr>
+										{/each}
+									</tbody>
+								</table>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<div class="text-center py-12 text-gray-500 bg-gray-50 rounded-lg border border-gray-200 border-dashed">
+						<p>루브릭 평가 데이터가 없습니다.</p>
+					</div>
+				{/if}
+			</div>
+		</div>
+	</div>
+{/if}
+
 											</div>
 										</div>
 									</div>
@@ -482,6 +584,32 @@
 					</div>
 				</div>
 			{/if}
+		</div>
+
+		<!-- Student List -->
+		<div class="mt-6">
+			<h2 class="text-lg font-semibold text-gray-700 mb-4">학생 목록</h2>
+			<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+				<div class="max-h-[300px] overflow-y-auto">
+					{#if students.length === 0}
+						<div class="p-4 text-center text-gray-500 text-sm">학생이 없습니다.</div>
+					{:else}
+						<ul class="divide-y divide-gray-100">
+							{#each students as student}
+								<li>
+									<button
+										onclick={() => openStudentModal(student)}
+										class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center justify-between group cursor-pointer"
+									>
+										<span class="font-medium text-gray-800">{student.name}</span>
+										<span class="text-xs text-gray-400 group-hover:text-blue-600">상세보기 &rarr;</span>
+									</button>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			</div>
 		</div>
 	</div>
 </div>

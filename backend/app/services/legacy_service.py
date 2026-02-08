@@ -99,6 +99,78 @@ async def list_active_courses() -> List[Dict[str, Any]]:
     return await _query_legacy(sql)
 
 
+async def get_rubric_scores_for_student(
+    user_id: int, user_group_id: int
+) -> List[Dict[str, Any]]:
+    """Fetch rubric evaluation results for a specific student in a course.
+
+    Returns rows with: task_title, rubric_metric, rubric_order,
+    human_score, gpt_score, rubric_feedback, overall_feedback
+    """
+    sql = f"""
+    SELECT
+        n.title AS task_title,
+        r.metric AS rubric_metric,
+        r."order" AS rubric_order,
+        e.score AS human_score,
+        rge.gpt_score,
+        rge.gpt_comment AS rubric_feedback,
+        ge.overall_comment AS overall_feedback
+    FROM core_gptevaluation ge
+    JOIN core_nodeprogrs np ON ge.node_progrs_id = np.id
+    JOIN core_nodeschedule ns ON np.node_schedule_id = ns.id
+    JOIN core_node n ON ns.node_id = n.id
+    JOIN core_nodeversion nv ON ns.node_version_id = nv.id
+    JOIN core_coursenodeversionrelation cnvr ON nv.id = cnvr.node_version_id
+    JOIN core_userenrolments ue ON np.user_enrolments_id = ue.id
+    LEFT JOIN user_group_course_mapping ugcm ON cnvr.course_id = ugcm.course_id
+    LEFT JOIN core_evaluation e ON e.node_progrs_id = np.id
+    LEFT JOIN core_rubric r ON e.rubric_id = r.id
+    LEFT JOIN core_rubricgptevaluation rge ON rge.evaluation_id = e.id
+    WHERE ue.user_id = {user_id}
+      AND ugcm.user_group_id = {user_group_id}
+    ORDER BY n.title, r."order"
+    """
+    return await _query_legacy(sql)
+
+
+async def get_rubric_scores_all_students(
+    user_group_id: int,
+) -> List[Dict[str, Any]]:
+    """Fetch rubric evaluation results for ALL students in a course.
+
+    Returns rows with: student_id, student_name, task_title, rubric_metric,
+    rubric_order, human_score, gpt_score, rubric_feedback, overall_feedback
+    """
+    sql = f"""
+    SELECT
+        ue.user_id AS student_id,
+        TRIM(CONCAT(cu.last_name, cu.first_name)) AS student_name,
+        n.title AS task_title,
+        r.metric AS rubric_metric,
+        r."order" AS rubric_order,
+        e.score AS human_score,
+        rge.gpt_score,
+        rge.gpt_comment AS rubric_feedback,
+        ge.overall_comment AS overall_feedback
+    FROM core_gptevaluation ge
+    JOIN core_nodeprogrs np ON ge.node_progrs_id = np.id
+    JOIN core_nodeschedule ns ON np.node_schedule_id = ns.id
+    JOIN core_node n ON ns.node_id = n.id
+    JOIN core_nodeversion nv ON ns.node_version_id = nv.id
+    JOIN core_coursenodeversionrelation cnvr ON nv.id = cnvr.node_version_id
+    JOIN core_userenrolments ue ON np.user_enrolments_id = ue.id
+    JOIN core_user cu ON ue.user_id = cu.id
+    LEFT JOIN user_group_course_mapping ugcm ON cnvr.course_id = ugcm.course_id
+    LEFT JOIN core_evaluation e ON e.node_progrs_id = np.id
+    LEFT JOIN core_rubric r ON e.rubric_id = r.id
+    LEFT JOIN core_rubricgptevaluation rge ON rge.evaluation_id = e.id
+    WHERE ugcm.user_group_id = {user_group_id}
+    ORDER BY cu.first_name, n.title, r."order"
+    """
+    return await _query_legacy(sql)
+
+
 async def list_students_by_course(user_group_id: int) -> List[Dict[str, Any]]:
     """List active students enrolled in a specific course (user_group).
     Excludes dropout students (status=INACTIVE with dropout_at set)."""

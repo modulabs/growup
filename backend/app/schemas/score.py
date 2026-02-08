@@ -63,3 +63,30 @@ class CourseScoreSummary(BaseModel):
     total_quest_score: float = 0.0
     total_bonus_score: float = 0.0
     total_score: float = 0.0
+
+
+# ── Rubric evaluation (from Legacy DB) ──
+
+
+class RubricItemOut(BaseModel):
+    rubric_metric: str
+    rubric_order: Optional[int] = None
+    human_score: Optional[int] = None
+    gpt_score: Optional[int] = None
+    feedback: Optional[str] = None
+
+
+class TaskRubricOut(BaseModel):
+    task_title: str
+    rubric_items: List[RubricItemOut]
+    overall_feedback: Optional[str] = None
+    total_human: int = 0
+    total_gpt: int = 0
+    max_score: int = 0
+
+
+class StudentRubricResponse(BaseModel):
+    legacy_course_id: int
+    course_name: str
+    student_name: str = ""
+    tasks: List[TaskRubricOut]

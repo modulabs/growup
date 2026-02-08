@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -24,9 +25,13 @@ from app.schemas.quest import (
 from app.schemas.score import (
     BonusScoreCreate,
     BonusScoreOut,
+    RubricItemOut,
     ScoreBatchRequest,
     ScoreOut,
+    StudentRubricResponse,
+    TaskRubricOut,
 )
+from app.services.legacy_service import get_rubric_scores_for_student
 from app.services.sheet_service import import_from_sheet
 
 router = APIRouter(tags=["facilitator"])
@@ -584,6 +589,69 @@ async def toggle_favorite(
         db.add(fav)
         await db.commit()
         return {"is_favorite": True}
+
+
+@router.get(
+    "/courses/{course_id}/students/{student_id}/rubrics",
+    response_model=StudentRubricResponse,
+)
+async def student_rubrics(
+    course_id: int,
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(require_facilitator),
+):
+    course = await db.get(CachedCourse, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if not course.legacy_user_group_id:
+        raise HTTPException(
+            status_code=400, detail="Course has no legacy user group mapping"
+        )
+
+    rows = await get_rubric_scores_for_student(student_id, course.legacy_user_group_id)
+
+    tasks_map: dict[str, list] = defaultdict(list)
+    overall_map: dict[str, str | None] = {}
+    for r in rows:
+        title = r.get("task_title", "Unknown")
+        tasks_map[title].append(r)
+        if r.get("overall_feedback"):
+            overall_map[title] = r["overall_feedback"]
+
+    tasks: list[TaskRubricOut] = []
+    for title, items in tasks_map.items():
+        rubric_items = [
+            RubricItemOut(
+                rubric_metric=it.get("rubric_metric", ""),
+                rubric_order=it.get("rubric_order"),
+                human_score=it.get("human_score"),
+                gpt_score=it.get("gpt_score"),
+                feedback=it.get("rubric_feedback"),
+            )
+            for it in items
+            if it.get("rubric_metric")
+        ]
+        total_human = sum(i.human_score or 0 for i in rubric_items)
+        total_gpt = sum(i.gpt_score or 0 for i in rubric_items)
+        tasks.append(
+            TaskRubricOut(
+                task_title=title,
+                rubric_items=rubric_items,
+                overall_feedback=overall_map.get(title),
+                total_human=total_human,
+                total_gpt=total_gpt,
+                max_score=len(rubric_items),
+            )
+        )
+
+    user = await db.get(CachedUser, student_id)
+    return StudentRubricResponse(
+        legacy_course_id=course_id,
+        course_name=course.name,
+        student_name=user.name if user else "",
+        tasks=tasks,
+    )
 
 
 # ── Sheet Import ──

@@ -111,3 +111,27 @@ export const QUEST_TYPE_LABELS: Record<string, string> = {
 	datathon: '데이터톤',
 	ideathon: '아이디어톤'
 };
+
+export interface RubricItemOut {
+	rubric_metric: string;
+	rubric_order: number | null;
+	human_score: number | null;
+	gpt_score: number | null;
+	feedback: string | null;
+}
+
+export interface TaskRubricOut {
+	task_title: string;
+	rubric_items: RubricItemOut[];
+	overall_feedback: string | null;
+	total_human: number;
+	total_gpt: number;
+	max_score: number;
+}
+
+export interface StudentRubricResponse {
+	legacy_course_id: number;
+	course_name: string;
+	student_name: string;
+	tasks: TaskRubricOut[];
+}
