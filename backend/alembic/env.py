@@ -14,6 +14,7 @@ from app.models import (  # noqa: F401
     CachedEnrollment,
     CachedUser,
     FacilitatorFavorite,
+    FacilitatorOverride,
     Quest,
     QuestScore,
 )

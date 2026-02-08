@@ -8,7 +8,10 @@ const config = {
 	kit: {
 		adapter: adapter({
 			fallback: 'index.html' // SPA mode
-		})
+		}),
+		paths: {
+			base: process.env.NODE_ENV === 'production' ? '/growup' : ''
+		}
 	}
 };
 

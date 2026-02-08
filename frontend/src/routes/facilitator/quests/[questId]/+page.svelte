@@ -2,17 +2,18 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { api } from '$lib/api/client';
 	import { isLoggedIn } from '$lib/stores/auth';
 	import { addToast } from '$lib/stores/toast';
 	import { SCORE_RULES, QUEST_TYPE_LABELS } from '$lib/types';
-	import type { Quest, QuestScore, ScoreEntry } from '$lib/types';
+	import type { Quest, ScoreOut, ScoreEntry } from '$lib/types';
 	import LoadingSkeleton from '$lib/components/LoadingSkeleton.svelte';
 
 	let loading = $state(true);
 	let saving = $state(false);
 	let quest = $state<Quest | null>(null);
-	let scores = $state<QuestScore[]>([]);
+	let scores = $state<ScoreOut[]>([]);
 	let questId = $derived(page.params.questId);
 
 	// Editable score map: legacy_student_id -> { score, is_submitted }
@@ -39,26 +40,22 @@
 	});
 
 	onMount(async () => {
-		if (!$isLoggedIn) { goto('/login'); return; }
+		if (!$isLoggedIn) { goto(`${base}/login`); return; }
 		await loadScores();
 	});
 
 	async function loadScores() {
 		loading = true;
 		try {
-			const data = await api.get<{ quest: Quest; scores: QuestScore[] }>(`/api/v1/facilitator/quests/${questId}/scores`);
-			quest = data.quest;
-			scores = data.scores;
+			const [questData, scoreList] = await Promise.all([
+				api.get<Quest>(`/api/v1/facilitator/quests/${questId}`),
+				api.get<ScoreOut[]>(`/api/v1/facilitator/quests/${questId}/students`)
+			]);
+			quest = questData;
+			scores = scoreList;
 			initEditMap();
 		} catch (err) {
-			// Fallback: try loading scores as array (depends on backend shape)
-			try {
-				const scoreList = await api.get<QuestScore[]>(`/api/v1/facilitator/quests/${questId}/scores`);
-				scores = scoreList;
-				initEditMap();
-			} catch {
-				addToast('점수 데이터를 불러올 수 없습니다.', 'error');
-			}
+			addToast('점수 데이터를 불러올 수 없습니다.', 'error');
 		} finally {
 			loading = false;
 		}
@@ -128,7 +125,7 @@
 				return;
 			}
 
-			await api.put(`/api/v1/facilitator/quests/${questId}/scores`, { scores: changedScores });
+			await api.post(`/api/v1/facilitator/quests/${questId}/scores`, { scores: changedScores });
 			addToast(`${changedScores.length}명의 점수가 저장되었습니다.`, 'success');
 			await loadScores();
 		} catch (err) {

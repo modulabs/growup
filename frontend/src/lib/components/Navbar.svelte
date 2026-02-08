@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { base } from '$app/paths';
 	import { currentUser, logout } from '$lib/stores/auth';
 
 	function handleLogout() {
 		logout();
-		window.location.href = '/login';
+		window.location.href = `${base}/login`;
 	}
 
 	const roleBadge: Record<string, string> = {
@@ -14,7 +15,7 @@
 
 <nav class="bg-white border-b border-gray-200 px-4 py-3">
 	<div class="max-w-6xl mx-auto flex items-center justify-between">
-		<a href="/" class="text-xl font-bold text-blue-600">GrowUp</a>
+		<a href="{base}/" class="text-xl font-bold text-blue-600">GrowUp</a>
 
 		{#if $currentUser}
 			<div class="flex items-center gap-4">

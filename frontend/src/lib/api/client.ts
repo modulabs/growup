@@ -1,7 +1,8 @@
 import { get } from 'svelte/store';
+import { base } from '$app/paths';
 import { authToken, logout } from '$lib/stores/auth';
 
-const API_BASE = import.meta.env.PUBLIC_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 class ApiError extends Error {
 	status: number;
@@ -29,7 +30,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 	if (res.status === 401) {
 		logout();
 		if (typeof window !== 'undefined') {
-			window.location.href = '/login';
+			window.location.href = `${base}/login`;
 		}
 		throw new ApiError('인증이 만료되었습니다. 다시 로그인해주세요.', 401);
 	}

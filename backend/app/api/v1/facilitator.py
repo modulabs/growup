@@ -8,12 +8,18 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, require_facilitator
+from app.models.bonus import BonusScore
 from app.models.cache import CachedCourse, CachedEnrollment, CachedUser
 from app.models.favorite import FacilitatorFavorite
 from app.models.quest import Quest, QuestScore
 from app.schemas.course import CourseOut, StudentOut
 from app.schemas.quest import QuestCreate, QuestOut, QuestUpdate
-from app.schemas.score import ScoreBatchRequest, ScoreOut
+from app.schemas.score import (
+    BonusScoreCreate,
+    BonusScoreOut,
+    ScoreBatchRequest,
+    ScoreOut,
+)
 
 router = APIRouter(tags=["facilitator"])
 
@@ -117,6 +123,40 @@ async def list_students(
 
 
 # ── Quests ──
+
+
+@router.get("/quests/{quest_id}", response_model=QuestOut)
+async def get_quest(
+    quest_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(require_facilitator),
+):
+    quest = await db.get(Quest, quest_id)
+    if not quest:
+        raise HTTPException(status_code=404, detail="Quest not found")
+
+    total_stmt = select(func.count()).where(
+        CachedEnrollment.legacy_course_id == quest.cached_course_id
+    )
+    total_students = (await db.execute(total_stmt)).scalar() or 0
+
+    graded_stmt = (
+        select(func.count())
+        .where(QuestScore.quest_id == quest.id)
+        .where(QuestScore.is_submitted.is_(True))
+    )
+    graded_count = (await db.execute(graded_stmt)).scalar() or 0
+
+    return QuestOut(
+        id=str(quest.id),
+        cached_course_id=quest.cached_course_id,
+        quest_number=quest.quest_number,
+        quest_type=quest.quest_type,
+        title=quest.title,
+        quest_date=quest.quest_date,
+        graded_count=graded_count,
+        total_students=total_students,
+    )
 
 
 @router.get("/courses/{course_id}/quests", response_model=list[QuestOut])
@@ -311,8 +351,13 @@ async def batch_upsert_scores(
     results = []
 
     for entry in body.scores:
+        # Auto-detect is_submitted if not explicitly provided
+        is_submitted = entry.is_submitted
+        if is_submitted is None:
+            is_submitted = entry.score is not None
+
         # Validate
-        _validate_score(quest.quest_type, entry.score, entry.is_submitted)
+        _validate_score(quest.quest_type, entry.score, is_submitted)
 
         # Find existing score
         stmt = select(QuestScore).where(
@@ -326,7 +371,7 @@ async def batch_upsert_scores(
 
         if existing:
             existing.score = score_decimal
-            existing.is_submitted = entry.is_submitted
+            existing.is_submitted = is_submitted
             existing.graded_by_legacy_user_id = grader_id
             existing.graded_at = now
             await db.flush()
@@ -336,7 +381,7 @@ async def batch_upsert_scores(
                 quest_id=quest_id,
                 legacy_student_id=entry.legacy_student_id,
                 score=score_decimal,
-                is_submitted=entry.is_submitted,
+                is_submitted=is_submitted,
                 graded_by_legacy_user_id=grader_id,
                 graded_at=now,
             )
@@ -361,3 +406,117 @@ async def batch_upsert_scores(
 
     await db.commit()
     return results
+
+
+# ── Bonus Scores ──
+
+
+@router.get("/courses/{course_id}/bonus-scores", response_model=list[BonusScoreOut])
+async def list_bonus_scores(
+    course_id: int,
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(require_facilitator),
+):
+    stmt = (
+        select(BonusScore)
+        .where(BonusScore.cached_course_id == course_id)
+        .order_by(BonusScore.given_at.desc())
+    )
+    result = await db.execute(stmt)
+    items = result.scalars().all()
+
+    out = []
+    for b in items:
+        stu = await db.get(CachedUser, b.legacy_student_id)
+        giver = await db.get(CachedUser, b.given_by_legacy_user_id)
+        out.append(
+            BonusScoreOut(
+                id=str(b.id),
+                cached_course_id=b.cached_course_id,
+                legacy_student_id=b.legacy_student_id,
+                student_name=stu.name if stu else "",
+                score=float(b.score),
+                reason=b.reason,
+                given_by_name=giver.name if giver else "",
+                given_at=b.given_at.isoformat() if b.given_at else "",
+            )
+        )
+    return out
+
+
+@router.post(
+    "/courses/{course_id}/bonus-scores", response_model=BonusScoreOut, status_code=201
+)
+async def create_bonus_score(
+    course_id: int,
+    body: BonusScoreCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(require_facilitator),
+):
+    bonus = BonusScore(
+        cached_course_id=course_id,
+        legacy_student_id=body.legacy_student_id,
+        score=Decimal(str(body.score)),
+        reason=body.reason,
+        given_by_legacy_user_id=current_user["legacy_user_id"],
+    )
+    db.add(bonus)
+    await db.commit()
+    await db.refresh(bonus)
+
+    stu = await db.get(CachedUser, bonus.legacy_student_id)
+    giver = await db.get(CachedUser, bonus.given_by_legacy_user_id)
+    return BonusScoreOut(
+        id=str(bonus.id),
+        cached_course_id=bonus.cached_course_id,
+        legacy_student_id=bonus.legacy_student_id,
+        student_name=stu.name if stu else "",
+        score=float(bonus.score),
+        reason=bonus.reason,
+        given_by_name=giver.name if giver else "",
+        given_at=bonus.given_at.isoformat() if bonus.given_at else "",
+    )
+
+
+@router.delete("/bonus-scores/{bonus_id}", status_code=204)
+async def delete_bonus_score(
+    bonus_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(require_facilitator),
+):
+    bonus = await db.get(BonusScore, bonus_id)
+    if not bonus:
+        raise HTTPException(status_code=404, detail="Bonus score not found")
+    await db.delete(bonus)
+    await db.commit()
+
+
+# ── Favorites ──
+
+
+@router.post("/courses/{course_id}/favorite")
+async def toggle_favorite(
+    course_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(require_facilitator),
+):
+    fac_id = current_user["legacy_user_id"]
+    stmt = select(FacilitatorFavorite).where(
+        FacilitatorFavorite.legacy_facilitator_id == fac_id,
+        FacilitatorFavorite.cached_course_id == course_id,
+    )
+    result = await db.execute(stmt)
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        await db.delete(existing)
+        await db.commit()
+        return {"is_favorite": False}
+    else:
+        fav = FacilitatorFavorite(
+            legacy_facilitator_id=fac_id,
+            cached_course_id=course_id,
+        )
+        db.add(fav)
+        await db.commit()
+        return {"is_favorite": True}

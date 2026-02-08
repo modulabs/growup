@@ -2,14 +2,15 @@
 	import { onMount } from 'svelte';
 	import { isLoggedIn, userRole } from '$lib/stores/auth';
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 
 	onMount(() => {
 		if (!$isLoggedIn) {
-			goto('/login');
+			goto(`${base}/login`);
 		} else if ($userRole === 'facilitator') {
-			goto('/facilitator');
+			goto(`${base}/facilitator`);
 		} else {
-			goto('/student');
+			goto(`${base}/student`);
 		}
 	});
 </script>

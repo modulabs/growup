@@ -2,3 +2,4 @@ from app.models.cache import CachedUser, CachedCourse, CachedEnrollment  # noqa:
 from app.models.quest import Quest, QuestScore  # noqa: F401
 from app.models.bonus import BonusScore  # noqa: F401
 from app.models.favorite import FacilitatorFavorite  # noqa: F401
+from app.models.override import FacilitatorOverride  # noqa: F401

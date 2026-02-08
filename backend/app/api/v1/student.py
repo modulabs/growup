@@ -5,10 +5,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, require_student
-from app.models.cache import CachedCourse, CachedEnrollment
+from app.models.bonus import BonusScore
+from app.models.cache import CachedCourse, CachedEnrollment, CachedUser
 from app.models.quest import Quest, QuestScore
 from app.schemas.course import CourseOut
-from app.schemas.score import CourseScoreSummary, StudentScoreRow
+from app.schemas.score import BonusScoreOut, CourseScoreSummary, StudentScoreRow
 
 router = APIRouter(tags=["student"])
 
@@ -53,7 +54,7 @@ async def my_scores(
     quests = quests_result.scalars().all()
 
     rows: list[StudentScoreRow] = []
-    total = 0.0
+    total_quest = 0.0
     for q in quests:
         score_result = await db.execute(
             select(QuestScore).where(
@@ -66,7 +67,7 @@ async def my_scores(
         is_sub = qs.is_submitted if qs else False
 
         if score_val is not None:
-            total += score_val
+            total_quest += score_val
 
         rows.append(
             StudentScoreRow(
@@ -80,9 +81,40 @@ async def my_scores(
             )
         )
 
+    # Bonus scores
+    bonus_result = await db.execute(
+        select(BonusScore)
+        .where(
+            BonusScore.cached_course_id == course_id,
+            BonusScore.legacy_student_id == uid,
+        )
+        .order_by(BonusScore.given_at.desc())
+    )
+    bonus_items = bonus_result.scalars().all()
+
+    bonus_out: list[BonusScoreOut] = []
+    total_bonus = 0.0
+    for b in bonus_items:
+        total_bonus += float(b.score)
+        giver = await db.get(CachedUser, b.given_by_legacy_user_id)
+        bonus_out.append(
+            BonusScoreOut(
+                id=str(b.id),
+                cached_course_id=b.cached_course_id,
+                legacy_student_id=b.legacy_student_id,
+                score=float(b.score),
+                reason=b.reason,
+                given_by_name=giver.name if giver else "",
+                given_at=b.given_at.isoformat() if b.given_at else "",
+            )
+        )
+
     return CourseScoreSummary(
         legacy_course_id=course_id,
         course_name=course_name,
         scores=rows,
-        total_score=total,
+        bonus_scores=bonus_out,
+        total_quest_score=total_quest,
+        total_bonus_score=total_bonus,
+        total_score=total_quest + total_bonus,
     )

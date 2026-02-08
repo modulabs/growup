@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { api, ApiError } from '$lib/api/client';
 	import { setAuth, isLoggedIn, userRole } from '$lib/stores/auth';
 	import { addToast } from '$lib/stores/toast';
@@ -13,7 +14,7 @@
 
 	onMount(() => {
 		if ($isLoggedIn) {
-			goto($userRole === 'facilitator' ? '/facilitator' : '/student');
+			goto($userRole === 'facilitator' ? `${base}/facilitator` : `${base}/student`);
 		}
 	});
 
@@ -50,9 +51,9 @@
 			addToast(`${data.name}님, 환영합니다!`, 'success');
 
 			if (data.role === 'facilitator') {
-				goto('/facilitator');
+				goto(`${base}/facilitator`);
 			} else {
-				goto('/student');
+				goto(`${base}/student`);
 			}
 		} catch (err) {
 			if (err instanceof ApiError) {

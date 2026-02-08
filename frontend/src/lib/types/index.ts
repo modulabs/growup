@@ -4,11 +4,10 @@ export interface User {
 	role: 'student' | 'facilitator';
 }
 
+// LoginResponse.active_courses item — no cohort/category (backend limitation)
 export interface CourseInfo {
 	legacy_course_id: number;
 	name: string;
-	cohort: string;
-	category: string;
 }
 
 export interface LoginResponse {
@@ -20,12 +19,15 @@ export interface LoginResponse {
 	active_courses: CourseInfo[];
 }
 
+// GET /facilitator/courses response item
 export interface Course {
 	legacy_course_id: number;
+	legacy_user_group_id: number | null;
 	name: string;
 	cohort: string;
 	category: string;
 	is_active: boolean;
+	is_favorite: boolean;
 }
 
 export interface Student {
@@ -33,6 +35,7 @@ export interface Student {
 	name: string;
 }
 
+// GET /facilitator/courses/{id}/quests, GET /facilitator/quests/{id}
 export interface Quest {
 	id: string;
 	cached_course_id: number;
@@ -40,31 +43,59 @@ export interface Quest {
 	quest_type: 'sub' | 'main' | 'datathon' | 'ideathon';
 	title: string | null;
 	quest_date: string;
-	created_at: string;
-	updated_at: string;
+	graded_count: number;
+	total_students: number;
 }
 
-export interface QuestScore {
+// GET /facilitator/quests/{id}/students response item
+export interface ScoreOut {
 	id: string;
 	quest_id: string;
 	legacy_student_id: number;
 	student_name: string;
 	score: number | null;
 	is_submitted: boolean;
-	graded_at: string | null;
 }
 
+// POST /facilitator/quests/{id}/scores request item
 export interface ScoreEntry {
 	legacy_student_id: number;
+	score: number | null;
+	is_submitted?: boolean;
+}
+
+// GET /student/courses/{id}/scores — scores array item
+export interface StudentScoreRow {
+	quest_id: string;
+	quest_number: number;
+	quest_type: string;
+	title: string | null;
+	quest_date: string;
 	score: number | null;
 	is_submitted: boolean;
 }
 
+// Bonus score
+export interface BonusScoreOut {
+	id: string;
+	cached_course_id: number;
+	legacy_student_id: number;
+	student_name: string;
+	score: number;
+	reason: string;
+	given_by_name: string;
+	given_at: string;
+}
+
+// GET /student/courses/{id}/scores full response
 export interface CourseScoreSummary {
-	course: CourseInfo;
-	quests: Quest[];
-	scores: QuestScore[];
-	total_score: number | null;
+	legacy_course_id: number;
+	course_name: string;
+	scores: StudentScoreRow[];
+	bonus_scores: BonusScoreOut[];
+	total_quest_score: number;
+	total_bonus_score: number;
+	total_score: number;
 }
 
 export const SCORE_RULES: Record<string, { min: number; max: number; step: number }> = {

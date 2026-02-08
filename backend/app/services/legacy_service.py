@@ -56,6 +56,7 @@ async def verify_user(name: str, phone: str) -> Optional[Dict[str, Any]]:
     JOIN core_userprivacy cup ON cu.id = cup.user_id
     WHERE TRIM(cu.first_name) = '{name.strip()}'
       AND REPLACE(cup.phone_number, '-', '') = '{phone.replace("-", "").strip()}'
+    ORDER BY cu.id DESC
     LIMIT 1
     """
     rows = await _query_legacy(sql)
