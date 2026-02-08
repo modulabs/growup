@@ -6,78 +6,9 @@
   warnings.warn(eol_message.format("3.9"), FutureWarning)
 /Users/admin/Documents/growup/backend/venv/lib/python3.9/site-packages/google/api_core/_python_version_support.py:246: FutureWarning: You are using a non-supported Python version (3.9.6). Google will not post any further updates to google.api_core supporting this Python version. Please upgrade to the latest Python version, or at least Python 3.10, and then update google.api_core.
   warnings.warn(message, FutureWarning)
-INFO:     Started server process [33708]
+INFO:     Started server process [38637]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:64318 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64323 - "GET /api/v1/facilitator/courses/1/students/32897/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64364 - "OPTIONS /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64364 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64365 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64408 - "OPTIONS /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64408 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64408 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64413 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64429 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64430 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64620 - "OPTIONS /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64621 - "OPTIONS /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64620 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64621 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64930 - "OPTIONS /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64931 - "OPTIONS /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64930 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64931 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65003 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65004 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65020 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65021 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65049 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65050 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65156 - "OPTIONS /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65157 - "OPTIONS /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65156 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65157 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65190 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65194 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49405 - "OPTIONS /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49406 - "OPTIONS /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49405 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49406 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49667 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49668 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49716 - "OPTIONS /api/v1/student/courses/15/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49717 - "OPTIONS /api/v1/student/courses/15/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49716 - "GET /api/v1/student/courses/15/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49717 - "GET /api/v1/student/courses/15/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49719 - "OPTIONS /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49721 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49721 - "OPTIONS /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49719 - "OPTIONS /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49721 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49719 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49767 - "OPTIONS /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49767 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49767 - "OPTIONS /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49772 - "OPTIONS /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49767 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49772 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49812 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49813 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49958 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49959 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50066 - "OPTIONS /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50066 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50066 - "OPTIONS /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50071 - "OPTIONS /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50066 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50071 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50348 - "OPTIONS /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50349 - "OPTIONS /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50348 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50349 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53215 - "OPTIONS /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53216 - "OPTIONS /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53216 - "GET /api/v1/student/courses/1/rubrics HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53215 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53392 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53397 - "GET /api/v1/student/courses/1/scores HTTP/1.1" 200 OK
