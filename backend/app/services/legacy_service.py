@@ -107,6 +107,18 @@ async def get_rubric_scores_for_student(
     Returns rows with: task_title, rubric_metric, rubric_order,
     human_score, gpt_score, rubric_feedback, overall_feedback
     """
+    # 1. Get course IDs for this group (optimization)
+    sql_courses = f"SELECT course_id FROM user_group_course_mapping WHERE user_group_id = {user_group_id}"
+    courses = await _query_legacy(sql_courses)
+    if not courses:
+        return []
+    course_ids = [str(c["course_id"]) for c in courses]
+    course_ids_str = ", ".join(course_ids)
+
+    # 2. Query evaluations
+    # Optimization: Filter by cnvr.course_id (via node_version) instead of ue.course_id
+    # because core_userenrolments query is too slow/times out on n8n.
+    # Start from core_evaluation (Human) because GPT eval might be missing for older courses.
     sql = f"""
     SELECT
         n.title AS task_title,
@@ -116,19 +128,18 @@ async def get_rubric_scores_for_student(
         rge.gpt_score,
         rge.gpt_comment AS rubric_feedback,
         ge.overall_comment AS overall_feedback
-    FROM core_gptevaluation ge
-    JOIN core_nodeprogrs np ON ge.node_progrs_id = np.id
+    FROM core_evaluation e
+    JOIN core_nodeprogrs np ON e.node_progrs_id = np.id
     JOIN core_nodeschedule ns ON np.node_schedule_id = ns.id
     JOIN core_node n ON ns.node_id = n.id
     JOIN core_nodeversion nv ON ns.node_version_id = nv.id
     JOIN core_coursenodeversionrelation cnvr ON nv.id = cnvr.node_version_id
     JOIN core_userenrolments ue ON np.user_enrolments_id = ue.id
-    LEFT JOIN user_group_course_mapping ugcm ON cnvr.course_id = ugcm.course_id
-    LEFT JOIN core_evaluation e ON e.node_progrs_id = np.id
+    LEFT JOIN core_gptevaluation ge ON ge.node_progrs_id = np.id
     LEFT JOIN core_rubric r ON e.rubric_id = r.id
     LEFT JOIN core_rubricgptevaluation rge ON rge.evaluation_id = e.id
     WHERE ue.user_id = {user_id}
-      AND ugcm.user_group_id = {user_group_id}
+      AND cnvr.course_id IN ({course_ids_str})
     ORDER BY n.title, r."order"
     """
     return await _query_legacy(sql)
@@ -142,6 +153,15 @@ async def get_rubric_scores_all_students(
     Returns rows with: student_id, student_name, task_title, rubric_metric,
     rubric_order, human_score, gpt_score, rubric_feedback, overall_feedback
     """
+    # 1. Get course IDs for this group (optimization)
+    sql_courses = f"SELECT course_id FROM user_group_course_mapping WHERE user_group_id = {user_group_id}"
+    courses = await _query_legacy(sql_courses)
+    if not courses:
+        return []
+    course_ids = [str(c["course_id"]) for c in courses]
+    course_ids_str = ", ".join(course_ids)
+
+    # 2. Query evaluations
     sql = f"""
     SELECT
         ue.user_id AS student_id,
@@ -153,19 +173,18 @@ async def get_rubric_scores_all_students(
         rge.gpt_score,
         rge.gpt_comment AS rubric_feedback,
         ge.overall_comment AS overall_feedback
-    FROM core_gptevaluation ge
-    JOIN core_nodeprogrs np ON ge.node_progrs_id = np.id
+    FROM core_evaluation e
+    JOIN core_nodeprogrs np ON e.node_progrs_id = np.id
     JOIN core_nodeschedule ns ON np.node_schedule_id = ns.id
     JOIN core_node n ON ns.node_id = n.id
     JOIN core_nodeversion nv ON ns.node_version_id = nv.id
     JOIN core_coursenodeversionrelation cnvr ON nv.id = cnvr.node_version_id
     JOIN core_userenrolments ue ON np.user_enrolments_id = ue.id
     JOIN core_user cu ON ue.user_id = cu.id
-    LEFT JOIN user_group_course_mapping ugcm ON cnvr.course_id = ugcm.course_id
-    LEFT JOIN core_evaluation e ON e.node_progrs_id = np.id
+    LEFT JOIN core_gptevaluation ge ON ge.node_progrs_id = np.id
     LEFT JOIN core_rubric r ON e.rubric_id = r.id
     LEFT JOIN core_rubricgptevaluation rge ON rge.evaluation_id = e.id
-    WHERE ugcm.user_group_id = {user_group_id}
+    WHERE cnvr.course_id IN ({course_ids_str})
     ORDER BY cu.first_name, n.title, r."order"
     """
     return await _query_legacy(sql)

@@ -38,6 +38,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.models.bonus import BonusScore
 from app.models.cache import CachedEnrollment, CachedUser
 from app.models.quest import Quest, QuestScore
 
@@ -139,17 +140,26 @@ _QUEST_BARE_RE = re.compile(r"^QUEST[_\s]*(\d+)$", re.IGNORECASE)
 _SKIP_COLS = {
     "비정규점수총계",
     "디스코드",
-    "디스코드 소통왕",
-    "아낌없이 주는 그루",
-    "쉐밸그투",
-    "퍼실재량점수",
+    # "디스코드 소통왕",
+    # "아낌없이 주는 그루",
+    # "쉐밸그투",
+    # "퍼실재량점수",
     "TOTAL",
     "신호등",
     "총점",
     "퀘스트 점수",
-    "비정규점수",
+    # "비정규점수",  # Allowed for bonus import
     "퀘스트 보상",
     "출결",
+    "퀘스트 점수\n 부여 기록",
+}
+
+_BONUS_COLS_PREFIXES = {
+    "비정규",
+    "디스코드 소통왕",
+    "아낌없이 주는 그루",
+    "쉐밸그투",
+    "퍼실재량점수",
 }
 
 
@@ -160,6 +170,12 @@ class ParsedQuest:
     quest_number: int
     title: str
     quest_date: Optional[date] = None
+
+
+@dataclass
+class ParsedBonusColumn:
+    col_index: int
+    reason: str
 
 
 @dataclass
@@ -181,15 +197,25 @@ class SheetImportResult:
     errors: list[str] = field(default_factory=list)
 
 
-def _parse_quest_header(name: str, col_idx: int) -> Optional[ParsedQuest]:
-    """Parse a quest column header into type + number."""
+def _parse_quest_header(
+    name: str, col_idx: int
+) -> Optional[ParsedQuest | ParsedBonusColumn]:
+    """Parse a quest column header into type + number, or detect bonus column."""
     name = name.strip()
     if not name:
         return None
 
     # Skip known non-quest columns
-    if name in _SKIP_COLS:
+    if name in _SKIP_COLS or name.replace("\n", "") in _SKIP_COLS:
         return None
+
+    # Bonus Score check
+    if "비정규" in name and "총계" not in name:
+        return ParsedBonusColumn(col_index=col_idx, reason=name)
+
+    for prefix in _BONUS_COLS_PREFIXES:
+        if name.startswith(prefix):
+            return ParsedBonusColumn(col_index=col_idx, reason=name)
 
     # Main quest: "Main QUEST_XX" — check first to avoid sub-match
     m = _QUEST_MAIN_RE.search(name)
@@ -372,30 +398,34 @@ async def import_from_sheet(
 
     # 3. Parse quest columns
     parsed_quests: list[ParsedQuest] = []
+    parsed_bonuses: list[ParsedBonusColumn] = []
 
     for col_idx in range(layout.quest_start_col, len(row_headers)):
-        pq = _parse_quest_header(row_headers[col_idx], col_idx)
-        if pq is None:
+        obj = _parse_quest_header(row_headers[col_idx], col_idx)
+        if obj is None:
             continue
 
-        # Attach date from row 1 (Layout A only)
-        if layout.has_date_row and len(rows) > 1:
-            row_dates = rows[1]
-            if col_idx < len(row_dates):
-                pq.quest_date = _parse_date(row_dates[col_idx])
+        if isinstance(obj, ParsedQuest):
+            # Attach date from row 1 (Layout A only)
+            if layout.has_date_row and len(rows) > 1:
+                row_dates = rows[1]
+                if col_idx < len(row_dates):
+                    obj.quest_date = _parse_date(row_dates[col_idx])
 
-        if pq.quest_date is None:
-            pq.quest_date = date.today()
+            if obj.quest_date is None:
+                obj.quest_date = date.today()
 
-        parsed_quests.append(pq)
+            parsed_quests.append(obj)
+        elif isinstance(obj, ParsedBonusColumn):
+            parsed_bonuses.append(obj)
 
-    if not parsed_quests:
-        result.errors.append(
-            "퀘스트 컬럼을 찾을 수 없습니다 (헤더에서 QUEST 패턴 미발견)."
-        )
+    if not parsed_quests and not parsed_bonuses:
+        result.errors.append("퀘스트 또는 비정규 점수 컬럼을 찾을 수 없습니다.")
         return result
 
-    logger.info(f"Parsed {len(parsed_quests)} quest columns from sheet")
+    logger.info(
+        f"Parsed {len(parsed_quests)} quest columns and {len(parsed_bonuses)} bonus columns"
+    )
 
     # 4. Build name → legacy_user_id mapping
     name_to_ids = await _build_name_to_ids(db, course_id)
@@ -511,6 +541,39 @@ async def import_from_sheet(
                 )
                 db.add(new_score)
                 result.scores_created += 1
+
+        # Parse Bonus Scores
+        for pb in parsed_bonuses:
+            cell_val = ""
+            if pb.col_index < len(row):
+                cell_val = row[pb.col_index]
+
+            score, _ = _parse_score_cell(cell_val, "main")
+
+            if score is not None and score > 0:
+                stmt = select(BonusScore).where(
+                    BonusScore.cached_course_id == course_id,
+                    BonusScore.legacy_student_id == student_id,
+                    BonusScore.reason == pb.reason,
+                )
+                existing_bonus = (await db.execute(stmt)).scalar_one_or_none()
+
+                if existing_bonus:
+                    if existing_bonus.score != score:
+                        existing_bonus.score = score
+                        existing_bonus.given_at = now
+                        result.scores_updated += 1
+                else:
+                    new_bonus = BonusScore(
+                        cached_course_id=course_id,
+                        legacy_student_id=student_id,
+                        score=score,
+                        reason=pb.reason,
+                        given_by_legacy_user_id=facilitator_id,
+                        given_at=now,
+                    )
+                    db.add(new_bonus)
+                    result.scores_created += 1
 
     result.students_matched = len(matched_students)
     result.students_unmatched = len(unmatched_names)

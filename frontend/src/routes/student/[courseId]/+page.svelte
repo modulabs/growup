@@ -114,7 +114,7 @@
 					<div class="flex justify-between items-end mb-2 relative z-10">
 						<div>
 							<h3 class="text-red-800 font-bold text-lg flex items-center gap-2">
-								🔥 성장 온도
+								❤️ 성장 온도
 							</h3>
 							<p class="text-red-600 text-xs mt-1">꾸준한 참여와 성취의 결과입니다.</p>
 						</div>
@@ -128,7 +128,7 @@
 					</div>
 					<!-- Background Deco -->
 					<div class="absolute -right-6 -bottom-6 text-red-100 opacity-50">
-						<svg width="120" height="120" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" /></svg>
+						<svg width="120" height="120" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
 					</div>
 				</div>
 
@@ -137,7 +137,7 @@
 					<div class="flex justify-between items-end mb-2 relative z-10">
 						<div>
 							<h3 class="text-orange-800 font-bold text-lg flex items-center gap-2">
-								❤️ 열정 온도
+								🔥 열정 온도
 							</h3>
 							<p class="text-orange-600 text-xs mt-1">최근 2주간의 활동 지표입니다.</p>
 						</div>
@@ -151,7 +151,7 @@
 					</div>
 					<!-- Background Deco -->
 					<div class="absolute -right-6 -bottom-6 text-orange-100 opacity-50">
-						<svg width="120" height="120" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
+						<svg width="120" height="120" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 10c0-2.21-1.79-4-4-4s-4 1.79-4 4c0 .3.03.6.09.88.07-.02.14-.04.22-.04.83 0 1.5.67 1.5 1.5 0 .83-.67 1.5-1.5 1.5-.26 0-.5-.07-.72-.19-.4.92-.79 2.15-.79 3.35 0 2.76 2.24 5 5 5s5-2.24 5-5c0-2.3-1.63-4.25-3.8-4.82zM15 2c0 5 4 8 4 11 0 4.42-3.58 8-8 8S3 17.42 3 13c0-3 2-5 2-5s.5-.5 1.5 0c1 .5 2 2 2 2s-.5-4 2.5-6 3-2 4-2z" /></svg>
 					</div>
 				</div>
 			</div>
