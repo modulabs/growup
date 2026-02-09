@@ -5,21 +5,28 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
     volumes:
       - ./backend/app:/app/app
-      # Uncomment and adjust path to mount token.json
-      # - ./token.json:/app/token.json
+      # Mount token.json
+      - ./token.json:/app/token.json
     environment:
       # Override DATABASE_URL to use 'db' service hostname
       - DATABASE_URL=postgresql+asyncpg://growup:growup_dev@db:5432/growup
       # Ensure config points to mounted token
-      # - GOOGLE_CREDENTIALS_PATH=/app/token.json
+      - GOOGLE_CREDENTIALS_PATH=/app/token.json
     env_file:
       - ./backend/.env
     depends_on:
       - db
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
 
   db:
     image: postgres:16
