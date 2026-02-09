@@ -12,6 +12,7 @@ app.add_middleware(
         "http://localhost:4173",
         "https://suncreation.github.io",
         "https://modulabs.github.io",
+        "https://modulabs.ddns.net",
     ],
     allow_credentials=True,
     allow_methods=["*"],

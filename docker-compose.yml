@@ -15,15 +15,21 @@ services:
       # Ensure config points to mounted token
       - GOOGLE_CREDENTIALS_PATH=/app/token.json
     ports:
-      - "80:8000"
+      - "80:80"
     env_file:
       - ./backend/.env
+    privileged: true
+    security_opt:
+      - apparmor:unconfined
     depends_on:
       - db
 
   db:
     image: postgres:16
     restart: always
+    privileged: true
+    security_opt:
+      - apparmor:unconfined
     environment:
       POSTGRES_USER: growup
       POSTGRES_PASSWORD: growup_dev
@@ -31,7 +37,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5433:5432"
 
 volumes:
   postgres_data:
