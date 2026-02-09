@@ -1,6 +1,7 @@
 #!/bin/bash
 cd frontend/build
 rm -rf .git
+cp index.html 404.html
 git init
 git add .
 git commit -m "Deploy to gh-pages"
