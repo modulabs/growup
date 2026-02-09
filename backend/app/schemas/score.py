@@ -39,6 +39,7 @@ class StudentScoreRow(BaseModel):
 class BonusScoreCreate(BaseModel):
     legacy_student_id: int
     score: float
+    category: str = ""
     reason: str = ""
 
 
@@ -48,6 +49,7 @@ class BonusScoreOut(BaseModel):
     legacy_student_id: int
     student_name: str = ""
     score: float
+    category: str = ""
     reason: str = ""
     given_by_name: str = ""
     given_at: str = ""

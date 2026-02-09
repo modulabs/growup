@@ -120,6 +120,7 @@ async def my_scores(
                 cached_course_id=b.cached_course_id,
                 legacy_student_id=b.legacy_student_id,
                 score=float(b.score),
+                category=b.category,
                 reason=b.reason,
                 given_by_name=giver_name,
                 given_at=b.given_at.isoformat() if b.given_at else "",

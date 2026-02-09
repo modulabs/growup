@@ -505,8 +505,9 @@ async def list_bonus_scores(
                 legacy_student_id=b.legacy_student_id,
                 student_name=stu.name if stu else "",
                 score=float(b.score),
+                category=b.category,
                 reason=b.reason,
-                given_by_name=giver.name if giver else "",
+                given_by_name=b.given_by_name or (giver.name if giver else ""),
                 given_at=b.given_at.isoformat() if b.given_at else "",
             )
         )
@@ -526,8 +527,10 @@ async def create_bonus_score(
         cached_course_id=course_id,
         legacy_student_id=body.legacy_student_id,
         score=Decimal(str(body.score)),
+        category=body.category,
         reason=body.reason,
         given_by_legacy_user_id=current_user["legacy_user_id"],
+        given_by_name=current_user["name"],
     )
     db.add(bonus)
     await db.commit()
@@ -541,8 +544,9 @@ async def create_bonus_score(
         legacy_student_id=bonus.legacy_student_id,
         student_name=stu.name if stu else "",
         score=float(bonus.score),
+        category=bonus.category,
         reason=bonus.reason,
-        given_by_name=giver.name if giver else "",
+        given_by_name=bonus.given_by_name,
         given_at=bonus.given_at.isoformat() if bonus.given_at else "",
     )
 

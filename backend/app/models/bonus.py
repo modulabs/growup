@@ -18,6 +18,7 @@ class BonusScore(Base):
     cached_course_id: Mapped[int] = mapped_column(BigInteger, index=True)
     legacy_student_id: Mapped[int] = mapped_column(BigInteger, index=True)
     score: Mapped[Decimal] = mapped_column(Numeric(5, 1))
+    category: Mapped[str] = mapped_column(Text, default="")
     reason: Mapped[str] = mapped_column(Text, default="")
     given_by_legacy_user_id: Mapped[int] = mapped_column(BigInteger)
     given_by_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

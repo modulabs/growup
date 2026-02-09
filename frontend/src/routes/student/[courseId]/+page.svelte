@@ -375,7 +375,8 @@
 						<table class="w-full text-sm">
 							<thead class="bg-amber-50/50">
 								<tr>
-									<th class="px-6 py-3 text-left font-medium text-amber-900/60">사유</th>
+									<th class="px-6 py-3 text-left font-medium text-amber-900/60">카테고리</th>
+									<th class="px-6 py-3 text-left font-medium text-amber-900/60">상세 사유</th>
 									<th class="px-6 py-3 text-center font-medium text-amber-900/60">점수</th>
 									<th class="px-6 py-3 text-left font-medium text-amber-900/60">부여자</th>
 									<th class="px-6 py-3 text-left font-medium text-amber-900/60">날짜</th>
@@ -384,7 +385,8 @@
 							<tbody class="divide-y divide-gray-100">
 								{#each data.bonus_scores as bonus}
 									<tr class="hover:bg-amber-50/30 transition-colors">
-										<td class="px-6 py-4 text-gray-800 font-medium">{bonus.reason || '-'}</td>
+										<td class="px-6 py-4 text-gray-800 font-medium">{bonus.category || '-'}</td>
+										<td class="px-6 py-4 text-gray-600">{bonus.reason || '-'}</td>
 										<td class="px-6 py-4 text-center font-bold text-amber-600">+{bonus.score}</td>
 										<td class="px-6 py-4 text-gray-500">{bonus.given_by_name}</td>
 										<td class="px-6 py-4 text-gray-400 text-xs">{formatDate(bonus.given_at)}</td>

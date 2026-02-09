@@ -86,8 +86,12 @@
 	let bonusLoading = $state(false);
 	let bonusStudentId = $state<number | null>(null);
 	let bonusScoreValue = $state<number>(0);
+	let bonusCategory = $state('퍼실재량점수');
+	let bonusCustomCategory = $state('');
 	let bonusReason = $state('');
 	let bonusSubmitting = $state(false);
+
+	const BONUS_CATEGORIES = ['퍼실재량점수', '아낌없이 주는 그루', '디스코드 소통왕', '쉐밸그투', '직접 입력'];
 
 	// Rubric View Modal
 	let showStudentModal = $state(false);
@@ -150,8 +154,13 @@
 	}
 
 	async function addBonusScore() {
-		if (!bonusStudentId || bonusScoreValue <= 0 || !bonusReason.trim()) {
-			addToast('학생, 점수, 사유를 모두 입력해주세요.', 'error');
+		let finalCategory = bonusCategory;
+		if (bonusCategory === '직접 입력') {
+			finalCategory = bonusCustomCategory.trim();
+		}
+
+		if (!bonusStudentId || bonusScoreValue <= 0 || !finalCategory) {
+			addToast('학생, 점수, 카테고리를 입력해주세요.', 'error');
 			return;
 		}
 		bonusSubmitting = true;
@@ -159,12 +168,15 @@
 			await api.post(`/api/v1/facilitator/courses/${courseId}/bonus-scores`, {
 				legacy_student_id: bonusStudentId,
 				score: bonusScoreValue,
+				category: finalCategory,
 				reason: bonusReason.trim()
 			});
 			addToast('비정규 점수가 부여되었습니다.', 'success');
 			bonusStudentId = null;
 			bonusScoreValue = 0;
 			bonusReason = '';
+			bonusCategory = '퍼실재량점수';
+			bonusCustomCategory = '';
 			await loadBonusScores();
 		} catch {
 			addToast('비정규 점수 부여에 실패했습니다.', 'error');
@@ -514,7 +526,7 @@
 						</select>
 					</div>
 					<div class="flex gap-3">
-						<div class="w-24">
+						<div class="w-20">
 							<label class="block text-xs text-gray-500 mb-1">점수</label>
 							<input
 								type="number"
@@ -524,14 +536,34 @@
 								class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
 							/>
 						</div>
-						<div class="flex-1">
-							<label class="block text-xs text-gray-500 mb-1">사유</label>
-							<input
-								type="text"
-								bind:value={bonusReason}
-								placeholder="예: 발표 우수"
-								class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-							/>
+						<div class="flex-1 space-y-2">
+							<div>
+								<label class="block text-xs text-gray-500 mb-1">카테고리</label>
+								<select
+									bind:value={bonusCategory}
+									class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+								>
+									{#each BONUS_CATEGORIES as cat}
+										<option value={cat}>{cat}</option>
+									{/each}
+								</select>
+							</div>
+							{#if bonusCategory === '직접 입력'}
+								<input
+									type="text"
+									bind:value={bonusCustomCategory}
+									placeholder="카테고리 입력"
+									class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+								/>
+							{/if}
+							<div>
+								<input
+									type="text"
+									bind:value={bonusReason}
+									placeholder="상세 사유 (선택)"
+									class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+								/>
+							</div>
 						</div>
 					</div>
 					<button
@@ -559,6 +591,7 @@
 								<tr>
 									<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">학생</th>
 									<th class="px-3 py-2 text-center text-xs font-medium text-gray-500">점수</th>
+									<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">카테고리</th>
 									<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">사유</th>
 									<th class="px-3 py-2 text-center text-xs font-medium text-gray-500 w-10"></th>
 								</tr>
@@ -566,9 +599,10 @@
 							<tbody class="divide-y divide-gray-100">
 								{#each bonusScores as bs}
 									<tr class="hover:bg-gray-50" title="{bs.given_by_name} · {new Date(bs.given_at).toLocaleDateString('ko-KR')}">
-										<td class="px-3 py-2 font-medium text-gray-800 truncate max-w-[100px]">{bs.student_name}</td>
+										<td class="px-3 py-2 font-medium text-gray-800 truncate max-w-[80px]">{bs.student_name}</td>
 										<td class="px-3 py-2 text-center font-bold text-green-600">+{bs.score}</td>
-										<td class="px-3 py-2 text-gray-600 truncate max-w-[120px]">{bs.reason}</td>
+										<td class="px-3 py-2 text-xs text-gray-800 truncate max-w-[80px]">{bs.category}</td>
+										<td class="px-3 py-2 text-gray-600 truncate max-w-[100px]">{bs.reason}</td>
 										<td class="px-3 py-2 text-center">
 											<button
 												onclick={() => deleteBonusScore(bs.id)}

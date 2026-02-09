@@ -82,6 +82,7 @@ export interface BonusScoreOut {
 	legacy_student_id: number;
 	student_name: string;
 	score: number;
+	category: string;
 	reason: string;
 	given_by_name: string;
 	given_at: string;

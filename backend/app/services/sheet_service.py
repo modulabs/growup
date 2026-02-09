@@ -681,25 +681,22 @@ async def import_from_sheet(
             bonus_entries = _parse_bonus_entries(note_content, cell_val, pb.reason)
 
             if bonus_entries:
-                # 1. Delete existing for this reason (to handle splits/updates cleanly)
+                # 1. Delete existing for this reason category
                 stmt_del = delete(BonusScore).where(
                     BonusScore.cached_course_id == course_id,
                     BonusScore.legacy_student_id == student_id,
-                    BonusScore.reason.like(f"{pb.reason}%"),
+                    BonusScore.category == pb.reason,
                 )
                 await db.execute(stmt_del)
 
                 # 2. Insert new entries
                 for entry in bonus_entries:
-                    final_reason = pb.reason
-                    if entry.specific_reason:
-                        final_reason = f"{pb.reason}: {entry.specific_reason}"
-
                     new_bonus = BonusScore(
                         cached_course_id=course_id,
                         legacy_student_id=student_id,
                         score=entry.score,
-                        reason=final_reason,
+                        category=pb.reason,
+                        reason=entry.specific_reason,
                         given_by_legacy_user_id=facilitator_id,
                         given_by_name=entry.giver,
                         given_at=entry.date,
