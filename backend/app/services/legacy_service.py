@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 TIMEOUT = 15.0
 
 
+def _sql_escape(value: str) -> str:
+    return value.replace("'", "''")
+
+
 def _build_auth_headers() -> Dict[str, str]:
     """Build HTTP Basic Auth header for n8n webhook."""
     user = settings.N8N_LEGACY_DB_AUTH_USER
@@ -42,9 +46,9 @@ async def _query_legacy(sql: str) -> List[Dict[str, Any]]:
         return []
 
 
-async def verify_user(name: str, phone: str) -> Optional[Dict[str, Any]]:
-    """Verify user by name + phone against Legacy DB.
-    Returns dict with user_id, first_name, phone_number, roles list, or None."""
+async def verify_user(email: str, phone: str) -> Optional[Dict[str, Any]]:
+    email_norm = _sql_escape(email.strip().lower())
+    phone_norm = _sql_escape(phone.replace("-", "").strip())
     sql = f"""
     SELECT
         cu.id AS user_id,
@@ -54,8 +58,8 @@ async def verify_user(name: str, phone: str) -> Optional[Dict[str, Any]]:
         cu.is_student
     FROM core_user cu
     JOIN core_userprivacy cup ON cu.id = cup.user_id
-    WHERE TRIM(cu.first_name) = '{name.strip()}'
-      AND REPLACE(cup.phone_number, '-', '') = '{phone.replace("-", "").strip()}'
+    WHERE LOWER(TRIM(cu.email)) = '{email_norm}'
+      AND REPLACE(cup.phone_number, '-', '') = '{phone_norm}'
     ORDER BY cu.id DESC
     LIMIT 1
     """

@@ -23,6 +23,9 @@ venv/
 *~
 .DS_Store
 
+# Local agent artifacts
+.sisyphus/
+
 # Backend
 backend/venv/
 backend/.env
@@ -32,6 +35,8 @@ frontend/node_modules/
 frontend/.svelte-kit/
 frontend/build/
 frontend/.env
+frontend/test-results/
+frontend/playwright-report/
 
 # Database
 *.sql.bak

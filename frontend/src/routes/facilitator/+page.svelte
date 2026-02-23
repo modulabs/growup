@@ -75,7 +75,7 @@
 	}
 </script>
 
-<div class="max-w-6xl mx-auto p-6">
+<div class="max-w-6xl mx-auto px-3 py-6 sm:px-6">
 	<div class="flex items-center justify-between mb-4">
 		<h1 class="text-2xl font-bold text-gray-800">과정 관리</h1>
 		<button

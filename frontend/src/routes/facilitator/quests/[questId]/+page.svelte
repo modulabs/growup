@@ -158,7 +158,7 @@
 	}
 </script>
 
-<div class="max-w-4xl mx-auto p-6">
+<div class="max-w-4xl mx-auto px-3 py-6 sm:px-6">
 	<!-- Header -->
 	<div class="mb-6">
 		<button
@@ -195,7 +195,7 @@
 		</div>
 	{:else}
 		<!-- Action Bar -->
-		<div class="flex items-center justify-between mb-4">
+		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
 			<div class="text-sm text-gray-500">
 				총 {scores.length}명
 				{#if dirtyCount() > 0}
@@ -221,8 +221,9 @@
 
 		<!-- Score Table -->
 		<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-			<table class="w-full">
-				<thead>
+			<div class="overflow-x-auto">
+				<table class="w-full min-w-[640px]">
+					<thead>
 					<tr class="bg-gray-50 border-b border-gray-200">
 						<th class="text-left px-4 py-3 text-sm font-medium text-gray-600 w-12">#</th>
 						<th class="text-left px-4 py-3 text-sm font-medium text-gray-600">학생</th>
@@ -289,13 +290,14 @@
 					{/if}
 				{/each}
 				</tbody>
-			</table>
+				</table>
+			</div>
 		</div>
 
 		<!-- Bottom Save Bar (sticky on scroll) -->
 		{#if isDirty()}
-			<div class="sticky bottom-4 mt-4">
-				<div class="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 flex items-center justify-between shadow-lg">
+			<div class="sticky bottom-2 sm:bottom-4 mt-4">
+				<div class="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 shadow-lg">
 					<span class="text-sm text-orange-700 font-medium">
 						{dirtyCount()}명의 점수가 변경되었습니다.
 					</span>

@@ -114,7 +114,7 @@
 	}
 </script>
 
-<div class="max-w-4xl mx-auto p-6">
+<div class="max-w-4xl mx-auto px-3 py-6 sm:px-6">
 	<div class="mb-6">
 		<h1 class="text-2xl font-bold text-gray-800">{courseName}</h1>
 	</div>
@@ -261,7 +261,8 @@
 				<!-- Tab: Quests -->
 				{#if activeTab === 'quests'}
 					{#if data.scores.length > 0}
-						<table class="w-full text-sm">
+					<div class="overflow-x-auto">
+						<table class="w-full text-sm min-w-[720px]">
 							<thead class="bg-gray-50">
 								<tr>
 									<th class="px-6 py-3 text-left font-medium text-gray-600">퀘스트</th>
@@ -297,6 +298,7 @@
 								{/each}
 							</tbody>
 						</table>
+					</div>
 					{:else}
 						<div class="text-center py-20 text-gray-500">
 							<p>등록된 퀘스트가 없습니다.</p>
@@ -372,7 +374,8 @@
 				<!-- Tab: Bonus -->
 				{#if activeTab === 'bonus'}
 					{#if data.bonus_scores.length > 0}
-						<table class="w-full text-sm">
+					<div class="overflow-x-auto">
+						<table class="w-full text-sm min-w-[720px]">
 							<thead class="bg-amber-50/50">
 								<tr>
 									<th class="px-6 py-3 text-left font-medium text-amber-900/60">카테고리</th>
@@ -394,6 +397,7 @@
 								{/each}
 							</tbody>
 						</table>
+					</div>
 					{:else}
 						<div class="text-center py-20 text-gray-500">
 							<p>비정규 점수 내역이 없습니다.</p>

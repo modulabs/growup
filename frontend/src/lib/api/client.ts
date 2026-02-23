@@ -1,8 +1,9 @@
-import { get } from 'svelte/store';
+import { env } from '$env/dynamic/public';
 import { base } from '$app/paths';
+import { get } from 'svelte/store';
 import { authToken, logout } from '$lib/stores/auth';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = env.PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
 class ApiError extends Error {
 	status: number;

@@ -298,7 +298,7 @@
 	}
 </script>
 
-<div class="max-w-[1600px] mx-auto p-6">
+<div class="max-w-[1600px] mx-auto px-3 py-6 sm:px-6">
 	<div class="mb-6">
 		<button
 			onclick={() => goto(`${base}/facilitator`)}
@@ -310,12 +310,12 @@
 	</div>
 
 	<!-- Two-column layout: Quests (left) | Bonus (right) -->
-	<div class="flex gap-6 items-start">
+	<div class="flex flex-col lg:flex-row gap-6 items-start">
 		<!-- LEFT: Quest list -->
 		<div class="flex-1 min-w-0">
-			<div class="flex items-center justify-between mb-4">
+			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
 				<h2 class="text-lg font-semibold text-gray-700">퀘스트 목록</h2>
-				<div class="flex gap-2">
+					<div class="flex flex-col sm:flex-row gap-2">
 					<button
 						onclick={openImportModal}
 						class="px-3 py-2 text-sm border border-green-600 text-green-700 rounded-lg hover:bg-green-50 transition-colors cursor-pointer"
@@ -506,7 +506,7 @@
 		</div>
 
 		<!-- RIGHT: Bonus scores (sticky sidebar) -->
-		<div class="w-[380px] flex-shrink-0 sticky top-6">
+		<div class="w-full lg:w-[380px] flex-shrink-0 lg:sticky lg:top-6">
 			<h2 class="text-lg font-semibold text-gray-700 mb-4">비정규 점수 관리</h2>
 
 			<!-- Add bonus score form -->
@@ -525,7 +525,7 @@
 							{/each}
 						</select>
 					</div>
-					<div class="flex gap-3">
+					<div class="flex flex-col sm:flex-row gap-3">
 						<div class="w-20">
 							<label class="block text-xs text-gray-500 mb-1">점수</label>
 							<input
@@ -599,10 +599,10 @@
 							<tbody class="divide-y divide-gray-100">
 								{#each bonusScores as bs}
 									<tr class="hover:bg-gray-50" title="{bs.given_by_name} · {new Date(bs.given_at).toLocaleDateString('ko-KR')}">
-										<td class="px-3 py-2 font-medium text-gray-800 truncate max-w-[80px]">{bs.student_name}</td>
-										<td class="px-3 py-2 text-center font-bold text-green-600">+{bs.score}</td>
-										<td class="px-3 py-2 text-xs text-gray-800 truncate max-w-[80px]">{bs.category}</td>
-										<td class="px-3 py-2 text-gray-600 truncate max-w-[100px]">{bs.reason}</td>
+					<td class="px-3 py-2 font-medium text-gray-800 max-w-full lg:max-w-[80px] truncate">{bs.student_name}</td>
+						<td class="px-3 py-2 text-center font-bold text-green-600">+{bs.score}</td>
+						<td class="px-3 py-2 text-xs text-gray-800 max-w-full lg:max-w-[80px] truncate">{bs.category}</td>
+						<td class="px-3 py-2 text-gray-600 max-w-full lg:max-w-[100px] truncate">{bs.reason}</td>
 										<td class="px-3 py-2 text-center">
 											<button
 												onclick={() => deleteBonusScore(bs.id)}

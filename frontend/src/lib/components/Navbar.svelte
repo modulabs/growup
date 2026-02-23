@@ -13,13 +13,14 @@
 	};
 </script>
 
+	
 <nav class="bg-white border-b border-gray-200 px-4 py-3">
 	<div class="max-w-6xl mx-auto flex items-center justify-between">
 		<a href="{base}/" class="text-xl font-bold text-blue-600">GrowUp</a>
 
 		{#if $currentUser}
-			<div class="flex items-center gap-4">
-				<span class="text-sm text-gray-600">
+			<div class="flex items-center gap-2 sm:gap-4 min-w-0">
+				<span class="text-sm text-gray-600 max-w-[120px] sm:max-w-none truncate">
 					{$currentUser.name}
 				</span>
 				<span

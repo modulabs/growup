@@ -22,7 +22,7 @@
 	});
 </script>
 
-<div class="max-w-4xl mx-auto p-6">
+<div class="max-w-4xl mx-auto px-3 py-6 sm:px-6">
 	<h1 class="text-2xl font-bold text-gray-800 mb-6">내 수강 과정</h1>
 
 	{#if $activeCourses.length === 0}

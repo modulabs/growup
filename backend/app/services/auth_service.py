@@ -21,7 +21,7 @@ async def _is_facilitator_override(db: AsyncSession, legacy_user_id: int) -> boo
     return result.scalar_one_or_none() is not None
 
 
-async def login(name: str, phone: str, db: AsyncSession) -> Optional[LoginResponse]:
+async def login(email: str, phone: str, db: AsyncSession) -> Optional[LoginResponse]:
     """Authenticate user via Legacy DB and return JWT.
 
     Role determination priority:
@@ -31,12 +31,12 @@ async def login(name: str, phone: str, db: AsyncSession) -> Optional[LoginRespon
     4. Default: student
     """
     # 1. Verify user exists in Legacy
-    legacy_user = await legacy_service.verify_user(name, phone)
+    legacy_user = await legacy_service.verify_user(email, phone)
     if not legacy_user:
         return None
 
     user_id = int(legacy_user["user_id"])
-    user_name = legacy_user.get("first_name", name)
+    user_name = legacy_user.get("first_name") or ""
 
     # 2. Cache user locally
     await cache_service.sync_user(db, legacy_user)

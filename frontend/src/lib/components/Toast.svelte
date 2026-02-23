@@ -8,10 +8,10 @@
 	};
 </script>
 
-<div class="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+<div class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-[calc(100vw-2rem)]">
 	{#each $toasts as toast (toast.id)}
 		<div
-			class="px-4 py-3 rounded-lg text-white text-sm shadow-lg max-w-sm {typeClasses[toast.type]}"
+			class="px-4 py-3 rounded-lg text-white text-sm shadow-lg w-full sm:max-w-sm {typeClasses[toast.type]}"
 			role="alert"
 		>
 			{toast.message}

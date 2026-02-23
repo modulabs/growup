@@ -7,7 +7,7 @@
 	import type { LoginResponse } from '$lib/types';
 	import { onMount } from 'svelte';
 
-	let name = $state('');
+	let email = $state('');
 	let phone = $state('');
 	let loading = $state(false);
 	let errorMsg = $state('');
@@ -18,22 +18,9 @@
 		}
 	});
 
-	function formatPhone(value: string): string {
-		const digits = value.replace(/\D/g, '');
-		if (digits.length <= 3) return digits;
-		if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-		return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
-	}
-
-	function handlePhoneInput(e: Event) {
-		const input = e.target as HTMLInputElement;
-		phone = formatPhone(input.value);
-	}
-
-	async function handleLogin(e: Event) {
-		e.preventDefault();
-		if (!name.trim() || !phone.trim()) {
-			errorMsg = '이름과 전화번호를 입력해주세요.';
+	async function handleLogin() {
+		if (!email.trim() || !phone.trim()) {
+			errorMsg = '이메일과 전화번호를 입력해주세요.';
 			return;
 		}
 
@@ -41,9 +28,9 @@
 		errorMsg = '';
 
 		try {
-			const rawPhone = phone.replace(/-/g, '');
+			const rawPhone = phone.replace(/\D/g, '');
 			const data = await api.post<LoginResponse>('/api/v1/auth/login', {
-				name: name.trim(),
+				email: email.trim(),
 				phone: rawPhone
 			});
 
@@ -79,14 +66,17 @@
 				<p class="text-sm text-gray-500">퀘스트 점수 관리 시스템</p>
 			</div>
 
-			<form onsubmit={handleLogin} class="space-y-4">
+			<div class="space-y-4">
 				<div>
-					<label for="name" class="block text-sm font-medium text-gray-700 mb-1">이름</label>
+					<label for="email" class="block text-sm font-medium text-gray-700 mb-1">이메일</label>
 					<input
-						id="name"
-						type="text"
-						bind:value={name}
-						placeholder="홍길동"
+						id="email"
+						type="email"
+						inputmode="email"
+						autocapitalize="off"
+						autocomplete="email"
+						bind:value={email}
+						placeholder="name@example.com"
 						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
 						disabled={loading}
 					/>
@@ -97,8 +87,9 @@
 					<input
 						id="phone"
 						type="tel"
-						value={phone}
-						oninput={handlePhoneInput}
+						inputmode="tel"
+						autocomplete="tel"
+						bind:value={phone}
 						placeholder="010-1234-5678"
 						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
 						disabled={loading}
@@ -110,13 +101,14 @@
 				{/if}
 
 				<button
-					type="submit"
+					type="button"
+					on:click={handleLogin}
 					disabled={loading}
 					class="w-full py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
 				>
 					{loading ? '로그인 중...' : '로그인'}
 				</button>
-			</form>
+			</div>
 		</div>
 	</div>
 </div>
