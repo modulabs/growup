@@ -21,6 +21,8 @@
 	let inactiveStudents = $state<Student[]>([]);
 	let togglingStudentId = $state<number | null>(null);
 
+	let confirmModal = $state<{ studentId: number; studentName: string; action: 'deactivate' | 'activate' } | null>(null);
+
 	let editMap = $state<Map<number, { score: number | null; is_submitted: boolean }>>(new Map());
 	let originalMap = $state<Map<number, { score: number | null; is_submitted: boolean }>>(new Map());
 
@@ -125,8 +127,14 @@
 		editMap = new Map(editMap);
 	}
 
-	async function toggleStudentActive(studentId: number) {
-		if (!quest) return;
+	function requestToggle(studentId: number, studentName: string, action: 'deactivate' | 'activate') {
+		confirmModal = { studentId, studentName, action };
+	}
+
+	async function confirmToggle() {
+		if (!confirmModal || !quest) return;
+		const { studentId } = confirmModal;
+		confirmModal = null;
 		togglingStudentId = studentId;
 		try {
 			const res = await api.patch<{ legacy_user_id: number; is_active: boolean }>(
@@ -267,8 +275,7 @@
 								<th class="text-left px-4 py-3 text-sm font-medium text-gray-600">학생</th>
 								<th class="text-center px-4 py-3 text-sm font-medium text-gray-600 w-32">점수</th>
 								<th class="text-center px-4 py-3 text-sm font-medium text-gray-600 w-24">제출</th>
-								<th class="text-center px-4 py-3 text-sm font-medium text-gray-600 w-20">채점</th>
-								<th class="text-center px-4 py-3 text-sm font-medium text-gray-600 w-24">상태</th>
+							<th class="text-center px-4 py-3 text-sm font-medium text-gray-600 w-20">상태</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -312,26 +319,20 @@
 											/>
 										</label>
 									</td>
-									<td class="px-4 py-2.5 text-center">
-										{#if originalMap.get(s.legacy_student_id) && (editMap.get(s.legacy_student_id)?.score !== originalMap.get(s.legacy_student_id)?.score || editMap.get(s.legacy_student_id)?.is_submitted !== originalMap.get(s.legacy_student_id)?.is_submitted)}
-											<span class="inline-block w-2 h-2 rounded-full bg-orange-400" title="변경됨"></span>
-										{:else if editMap.get(s.legacy_student_id)?.is_submitted && editMap.get(s.legacy_student_id)?.score !== null}
-											<span class="inline-block w-2 h-2 rounded-full bg-green-400" title="채점 완료"></span>
-										{:else if !editMap.get(s.legacy_student_id)?.is_submitted}
-											<span class="inline-block w-2 h-2 rounded-full bg-gray-300" title="미제출"></span>
-										{:else}
-											<span class="inline-block w-2 h-2 rounded-full bg-yellow-400" title="미채점"></span>
-										{/if}
-									</td>
-									<td class="px-4 py-2.5 text-center">
-										<button
-											onclick={() => toggleStudentActive(s.legacy_student_id)}
-											disabled={togglingStudentId === s.legacy_student_id}
-											class="px-2 py-1 text-xs rounded border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-red-200 text-red-600 hover:bg-red-50"
-										>
-											{togglingStudentId === s.legacy_student_id ? '처리중...' : '비활성화'}
-										</button>
-									</td>
+							<td class="px-4 py-2.5 text-center">
+								<button
+									onclick={() => requestToggle(s.legacy_student_id, s.student_name, 'deactivate')}
+									disabled={togglingStudentId === s.legacy_student_id}
+									class="inline-block cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+									title="클릭하여 비활성화"
+								>
+									{#if togglingStudentId === s.legacy_student_id}
+										<span class="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 animate-pulse"></span>
+									{:else}
+										<span class="inline-block w-2.5 h-2.5 rounded-full bg-green-400 hover:bg-green-500 transition-colors"></span>
+									{/if}
+								</button>
+							</td>
 								</tr>
 							{/if}
 						{/each}
@@ -377,15 +378,20 @@
 								<tr class="border-b border-gray-100 last:border-b-0 bg-gray-50/50">
 									<td class="px-4 py-2.5 text-sm text-gray-400">{i + 1}</td>
 									<td class="px-4 py-2.5 text-sm text-gray-500">{student.name}</td>
-									<td class="px-4 py-2.5 text-center">
-										<button
-											onclick={() => toggleStudentActive(student.legacy_user_id)}
-											disabled={togglingStudentId === student.legacy_user_id}
-											class="px-2 py-1 text-xs rounded border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-green-200 text-green-600 hover:bg-green-50"
-										>
-											{togglingStudentId === student.legacy_user_id ? '처리중...' : '활성화'}
-										</button>
-									</td>
+							<td class="px-4 py-2.5 text-center">
+								<button
+									onclick={() => requestToggle(student.legacy_user_id, student.name, 'activate')}
+									disabled={togglingStudentId === student.legacy_user_id}
+									class="inline-block cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+									title="클릭하여 활성화"
+								>
+									{#if togglingStudentId === student.legacy_user_id}
+										<span class="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 animate-pulse"></span>
+									{:else}
+										<span class="inline-block w-2.5 h-2.5 rounded-full bg-gray-400 hover:bg-green-400 transition-colors"></span>
+									{/if}
+								</button>
+							</td>
 								</tr>
 							{/each}
 							</tbody>
@@ -395,4 +401,41 @@
 			{/if}
 		{/if}
 	{/if}
+
+{#if confirmModal}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => { confirmModal = null; }}>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6" onclick={(e) => e.stopPropagation()}>
+			<h3 class="text-lg font-semibold text-gray-800 mb-2">
+				{confirmModal.action === 'deactivate' ? '학생 비활성화' : '학생 활성화'}
+			</h3>
+			<p class="text-sm text-gray-600 mb-1">
+				<span class="font-medium">{confirmModal.studentName}</span> 학생을
+				{confirmModal.action === 'deactivate' ? ' 비활성화' : ' 활성화'}하시겠습니까?
+			</p>
+			<p class="text-xs text-gray-400 mb-5">
+				{confirmModal.action === 'deactivate'
+					? '비활성 학생 탭에서 언제든 다시 활성화할 수 있습니다.'
+					: '활성화하면 채점 목록에 다시 표시됩니다.'}
+			</p>
+			<div class="flex gap-2 justify-end">
+				<button
+					onclick={() => { confirmModal = null; }}
+					class="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
+				>
+					취소
+				</button>
+				<button
+					onclick={confirmToggle}
+					class="px-4 py-2 text-sm text-white rounded-lg transition-colors cursor-pointer {confirmModal.action === 'deactivate' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-600 hover:bg-blue-700'}"
+				>
+					{confirmModal.action === 'deactivate' ? '비활성화' : '활성화'}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 </div>
