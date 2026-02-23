@@ -104,7 +104,9 @@ async def sync_students_for_course(
     )
     for enrollment in existing_enrollments.scalars().all():
         if enrollment.legacy_user_id not in active_user_ids:
-            await db.delete(enrollment)
+            enrollment.is_active = False
+        else:
+            enrollment.is_active = True
 
     await db.commit()
     return synced

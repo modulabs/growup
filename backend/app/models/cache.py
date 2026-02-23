@@ -41,3 +41,4 @@ class CachedEnrollment(Base):
 
     legacy_user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     legacy_course_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, server_default="true")

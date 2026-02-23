@@ -33,6 +33,7 @@ export interface Course {
 export interface Student {
 	legacy_user_id: number;
 	name: string;
+	is_active: boolean;
 }
 
 // GET /facilitator/courses/{id}/quests, GET /facilitator/quests/{id}

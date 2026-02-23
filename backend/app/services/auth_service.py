@@ -23,15 +23,18 @@ async def _is_facilitator_override(db: AsyncSession, legacy_user_id: int) -> boo
 
 async def login(email: str, phone: str, db: AsyncSession) -> Optional[LoginResponse]:
     """Authenticate user via Legacy DB and return JWT.
-
-    Role determination priority:
-    1. facilitator_overrides table (manual override)
-    2. Legacy DB is_coach flag
-    3. COACH role in any active course
+      1. facilitator_overrides table (manual override)
+      2. Legacy DB is_coach flag
+      3. COACH role in any active course
     4. Default: student
+    Security: Facilitators MUST append 'Facil' to their phone number.
     """
+    # 0. Detect Facil suffix (facilitator security keyword)
+    FACIL_SUFFIX = "Facil"
+    facil_requested = phone.endswith(FACIL_SUFFIX)
+    clean_phone = phone[: -len(FACIL_SUFFIX)] if facil_requested else phone
     # 1. Verify user exists in Legacy
-    legacy_user = await legacy_service.verify_user(email, phone)
+    legacy_user = await legacy_service.verify_user(email, clean_phone)
     if not legacy_user:
         return None
 
@@ -59,6 +62,14 @@ async def login(email: str, phone: str, db: AsyncSession) -> Optional[LoginRespo
                 role = "facilitator"
                 break
 
+
+    # 4b. Facilitator security: require 'Facil' suffix
+    if role == "facilitator" and not facil_requested:
+        # Facilitator must provide the suffix — deny access
+        return None
+    if facil_requested and role != "facilitator":
+        # Non-facilitator provided 'Facil' suffix — deny access
+        return None
     active_courses = []
     for c in courses_data:
         if c.get("is_active"):

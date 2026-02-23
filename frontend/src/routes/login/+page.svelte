@@ -28,7 +28,9 @@
 		errorMsg = '';
 
 		try {
-			const rawPhone = phone.replace(/\D/g, '');
+			const hasFacil = phone.trim().endsWith('Facil');
+			const phonePart = hasFacil ? phone.trim().slice(0, -5) : phone;
+			const rawPhone = phonePart.replace(/\D/g, '') + (hasFacil ? 'Facil' : '');
 			const data = await api.post<LoginResponse>('/api/v1/auth/login', {
 				email: email.trim(),
 				phone: rawPhone

@@ -82,6 +82,10 @@
 
 	// Students & Bonus scores
 	let students = $state<Student[]>([]);
+	let activeStudents = $state<Student[]>([]);
+	let inactiveStudents = $state<Student[]>([]);
+	let studentTab = $state<'active' | 'inactive'>('active');
+	let togglingStudentId = $state<number | null>(null);
 	let bonusScores = $state<BonusScoreOut[]>([]);
 	let bonusLoading = $state(false);
 	let bonusStudentId = $state<number | null>(null);
@@ -136,9 +140,30 @@
 
 	async function loadStudents() {
 		try {
-			students = await api.get<Student[]>(`/api/v1/facilitator/courses/${courseId}/students`);
+			const [active, inactive] = await Promise.all([
+				api.get<Student[]>(`/api/v1/facilitator/courses/${courseId}/students?active=true`),
+				api.get<Student[]>(`/api/v1/facilitator/courses/${courseId}/students?active=false`)
+			]);
+			activeStudents = active;
+			inactiveStudents = inactive;
+			students = active;
 		} catch {
-			// Students load silently — needed for bonus score dropdown
+			// Students load silently
+		}
+	}
+
+	async function toggleStudentActive(studentId: number) {
+		togglingStudentId = studentId;
+		try {
+			const res = await api.patch<{ legacy_user_id: number; is_active: boolean }>(
+				`/api/v1/facilitator/courses/${courseId}/students/${studentId}/active`
+			);
+			addToast(res.is_active ? '학생이 활성화되었습니다.' : '학생이 비활성화되었습니다.', 'success');
+			await loadStudents();
+		} catch {
+			addToast('학생 상태 변경에 실패했습니다.', 'error');
+		} finally {
+			togglingStudentId = null;
 		}
 	}
 
@@ -624,23 +649,78 @@
 		<div class="mt-6">
 			<h2 class="text-lg font-semibold text-gray-700 mb-4">학생 목록</h2>
 			<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+				<div class="border-b border-gray-200 overflow-x-auto">
+					<div class="flex min-w-max">
+						<button
+							onclick={() => (studentTab = 'active')}
+							class={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer ${studentTab === 'active'
+								? 'border-blue-600 text-blue-600'
+								: 'border-transparent text-gray-500 hover:text-gray-700'}`}
+						>
+							활성 학생 ({activeStudents.length})
+						</button>
+						<button
+							onclick={() => (studentTab = 'inactive')}
+							class={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer ${studentTab === 'inactive'
+								? 'border-blue-600 text-blue-600'
+								: 'border-transparent text-gray-500 hover:text-gray-700'}`}
+						>
+							비활성 학생 ({inactiveStudents.length})
+						</button>
+					</div>
+				</div>
+
 				<div class="max-h-[300px] overflow-y-auto">
-					{#if students.length === 0}
-						<div class="p-4 text-center text-gray-500 text-sm">학생이 없습니다.</div>
+					{#if studentTab === 'active'}
+						{#if activeStudents.length === 0}
+							<div class="p-4 text-center text-gray-500 text-sm">활성 학생이 없습니다.</div>
+						{:else}
+							<ul class="divide-y divide-gray-100">
+								{#each activeStudents as student}
+									<li class="px-4 py-3 flex items-center justify-between gap-3 hover:bg-gray-50">
+										<button
+											onclick={() => openStudentModal(student)}
+											class="text-left min-w-0 flex-1 group cursor-pointer"
+										>
+											<span class="font-medium text-gray-800 block truncate">{student.name}</span>
+											<span class="text-xs text-gray-400 group-hover:text-blue-600">상세보기 &rarr;</span>
+										</button>
+										<button
+											onclick={() => toggleStudentActive(student.legacy_user_id)}
+											disabled={togglingStudentId === student.legacy_user_id}
+											class="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+										>
+											{togglingStudentId === student.legacy_user_id ? '처리중...' : '비활성화'}
+										</button>
+									</li>
+								{/each}
+							</ul>
+						{/if}
 					{:else}
-						<ul class="divide-y divide-gray-100">
-							{#each students as student}
-								<li>
-									<button
-										onclick={() => openStudentModal(student)}
-										class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center justify-between group cursor-pointer"
-									>
-										<span class="font-medium text-gray-800">{student.name}</span>
-										<span class="text-xs text-gray-400 group-hover:text-blue-600">상세보기 &rarr;</span>
-									</button>
-								</li>
-							{/each}
-						</ul>
+						{#if inactiveStudents.length === 0}
+							<div class="p-4 text-center text-gray-500 text-sm">비활성 학생이 없습니다.</div>
+						{:else}
+							<ul class="divide-y divide-gray-100">
+								{#each inactiveStudents as student}
+									<li class="px-4 py-3 flex items-center justify-between gap-3 hover:bg-gray-50">
+										<button
+											onclick={() => openStudentModal(student)}
+											class="text-left min-w-0 flex-1 group cursor-pointer"
+										>
+											<span class="font-medium text-gray-800 block truncate">{student.name}</span>
+											<span class="text-xs text-gray-400 group-hover:text-blue-600">상세보기 &rarr;</span>
+										</button>
+										<button
+											onclick={() => toggleStudentActive(student.legacy_user_id)}
+											disabled={togglingStudentId === student.legacy_user_id}
+											class="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md border border-green-200 text-green-700 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+										>
+											{togglingStudentId === student.legacy_user_id ? '처리중...' : '활성화'}
+										</button>
+									</li>
+								{/each}
+							</ul>
+						{/if}
 					{/if}
 				</div>
 			</div>

@@ -4,8 +4,8 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import delete, func, select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, require_facilitator
@@ -119,11 +119,12 @@ async def list_courses(
 @router.get("/courses/{course_id}/students", response_model=list[StudentOut])
 async def list_students(
     course_id: int,
+    active: bool | None = Query(None, description="Filter by active status"),
     db: AsyncSession = Depends(get_db),
     _user: dict = Depends(require_facilitator),
 ):
     stmt = (
-        select(CachedUser)
+        select(CachedUser, CachedEnrollment.is_active)
         .join(
             CachedEnrollment,
             CachedEnrollment.legacy_user_id == CachedUser.legacy_user_id,
@@ -132,9 +133,32 @@ async def list_students(
         .where(CachedUser.name != "")
         .order_by(CachedUser.name)
     )
+    if active is not None:
+        stmt = stmt.where(CachedEnrollment.is_active.is_(active))
     result = await db.execute(stmt)
-    return [StudentOut.model_validate(u) for u in result.scalars().all()]
+    return [
+        StudentOut(
+            legacy_user_id=user.legacy_user_id,
+            name=user.name,
+            is_active=enrollment_active,
+        )
+        for user, enrollment_active in result.all()
+    ]
 
+
+@router.patch("/courses/{course_id}/students/{student_id}/active")
+async def toggle_student_active(
+    course_id: int,
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(require_facilitator),
+):
+    enrollment = await db.get(CachedEnrollment, (student_id, course_id))
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+    enrollment.is_active = not enrollment.is_active
+    await db.commit()
+    return {"legacy_user_id": student_id, "is_active": enrollment.is_active}
 
 # ── Quests ──
 
@@ -151,7 +175,7 @@ async def get_quest(
 
     total_stmt = select(func.count()).where(
         CachedEnrollment.legacy_course_id == quest.cached_course_id
-    )
+    ).where(CachedEnrollment.is_active.is_(True))
     total_students = (await db.execute(total_stmt)).scalar() or 0
 
     graded_stmt = (
@@ -189,7 +213,7 @@ async def list_quests(
     # Count total students for this course
     total_stmt = select(func.count()).where(
         CachedEnrollment.legacy_course_id == course_id
-    )
+    ).where(CachedEnrollment.is_active.is_(True))
     total_students = (await db.execute(total_stmt)).scalar() or 0
 
     out = []
@@ -364,6 +388,7 @@ async def list_quest_students(
             CachedEnrollment.legacy_user_id == CachedUser.legacy_user_id,
         )
         .where(CachedEnrollment.legacy_course_id == quest.cached_course_id)
+        .where(CachedEnrollment.is_active.is_(True))
         .where(CachedUser.name != "")
         .order_by(CachedUser.name)
     )

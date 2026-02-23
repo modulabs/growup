@@ -18,5 +18,6 @@ class CourseOut(BaseModel):
 class StudentOut(BaseModel):
     legacy_user_id: int
     name: str
+    is_active: bool = True
 
     model_config = {"from_attributes": True}
