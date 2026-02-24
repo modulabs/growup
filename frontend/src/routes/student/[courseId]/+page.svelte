@@ -95,14 +95,48 @@
 		}
 	}
 
-	function formatScore(score: number | null, isSubmitted: boolean): string {
-		if (!isSubmitted) return '미제출';
-		if (score === null) return '-';
-		return String(score);
+	function questTypeBadgeClass(questType: string): string {
+		switch (questType) {
+			case 'sub':
+				return 'bg-sky-50 text-sky-700 border-sky-200';
+			case 'main':
+				return 'bg-violet-50 text-violet-700 border-violet-200';
+			case 'datathon':
+				return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+			case 'ideathon':
+				return 'bg-rose-50 text-rose-700 border-rose-200';
+			default:
+				return 'bg-gray-50 text-gray-700 border-gray-200';
+		}
 	}
 
-	function scoreClass(isSubmitted: boolean): string {
-		return isSubmitted ? 'text-gray-900' : 'text-gray-400 italic';
+	function getQuestMaxScore(questType: string, score: number | null): number {
+		const baseMax = (SCORE_RULES[questType] || SCORE_RULES['main']).max;
+		if (score === null) return baseMax;
+		if (questType === 'main' && score > baseMax) {
+			if (score <= 10) return 10;
+			if (score <= 20) return 20;
+		}
+		return Math.max(baseMax, score);
+	}
+
+	function scoreVisualClass(score: number | null, isSubmitted: boolean, questType: string): string {
+		if (!isSubmitted) return 'bg-gray-100 text-gray-400 border-gray-200';
+		if (score === null) return 'bg-gray-100 text-gray-500 border-gray-200';
+		const max = getQuestMaxScore(questType, score);
+		const ratio = max > 0 ? score / max : 0;
+		if (ratio <= 0) return 'bg-red-50 text-red-700 border-red-200';
+		if (ratio < 0.4) return 'bg-orange-50 text-orange-700 border-orange-200';
+		if (ratio < 0.75) return 'bg-amber-50 text-amber-700 border-amber-200';
+		if (ratio < 1) return 'bg-lime-50 text-lime-700 border-lime-200';
+		return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+	}
+
+	function scoreLabel(score: number | null, isSubmitted: boolean, questType: string): string {
+		if (!isSubmitted) return '미제출';
+		if (score === null) return '-';
+		const max = getQuestMaxScore(questType, score);
+		return `${score} / ${max}`;
 	}
 
 	function formatDate(dateStr: string): string {
@@ -266,32 +300,34 @@
 				{#if activeTab === 'quests'}
 					{#if data.scores.length > 0}
 					<div class="overflow-x-auto">
-						<table class="w-full text-sm min-w-[720px]">
+						<table class="w-full text-sm min-w-[680px]">
 							<thead class="bg-gray-50">
 								<tr>
-									<th class="px-6 py-3 text-left font-medium text-gray-600">퀘스트</th>
-									<th class="px-6 py-3 text-left font-medium text-gray-600">유형</th>
-									<th class="px-6 py-3 text-left font-medium text-gray-600">제목</th>
-									<th class="px-6 py-3 text-left font-medium text-gray-600">날짜</th>
-									<th class="px-6 py-3 text-center font-medium text-gray-600">점수</th>
-									<th class="px-6 py-3 text-center font-medium text-gray-600">상태</th>
+									<th class="px-4 py-2.5 text-left font-medium text-gray-600">퀘스트</th>
+									<th class="px-4 py-2.5 text-left font-medium text-gray-600">유형</th>
+									<th class="px-4 py-2.5 text-left font-medium text-gray-600">제목</th>
+									<th class="px-4 py-2.5 text-left font-medium text-gray-600">날짜</th>
+									<th class="px-4 py-2.5 text-center font-medium text-gray-600">점수</th>
+									<th class="px-4 py-2.5 text-center font-medium text-gray-600">상태</th>
 								</tr>
 							</thead>
 							<tbody class="divide-y divide-gray-100">
-								{#each data.scores as row, i}
+								{#each data.scores as row}
 									<tr class="hover:bg-gray-50 transition-colors">
-										<td class="px-6 py-4 font-medium text-gray-900">#{row.quest_number}</td>
-										<td class="px-6 py-4">
-											<span class="px-2 py-1 text-xs rounded bg-blue-50 text-blue-700 border border-blue-100">
+										<td class="px-4 py-2.5 font-medium text-gray-900">#{row.quest_number}</td>
+										<td class="px-4 py-2.5">
+											<span class={`px-2 py-1 text-xs rounded border ${questTypeBadgeClass(row.quest_type)}`}>
 												{QUEST_TYPE_LABELS[row.quest_type] || row.quest_type}
 											</span>
 										</td>
-										<td class="px-6 py-4 text-gray-700 font-medium">{row.title || '-'}</td>
-										<td class="px-6 py-4 text-gray-500">{row.quest_date}</td>
-										<td class="px-6 py-4 text-center {scoreClass(row.is_submitted)}">
-											{formatScore(row.score, row.is_submitted)}
+										<td class="px-4 py-2.5 text-gray-700 font-medium">{row.title || '-'}</td>
+										<td class="px-4 py-2.5 text-gray-500">{row.quest_date}</td>
+										<td class="px-4 py-2.5 text-center">
+											<span class={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${scoreVisualClass(row.score, row.is_submitted, row.quest_type)}`}>
+												{scoreLabel(row.score, row.is_submitted, row.quest_type)}
+											</span>
 										</td>
-										<td class="px-6 py-4 text-center">
+										<td class="px-4 py-2.5 text-center">
 											{#if row.is_submitted}
 												<span class="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">제출됨</span>
 											{:else}
