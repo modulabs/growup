@@ -200,6 +200,13 @@
 	function nodeStarCount(score: number): number {
 		return Math.max(0, Math.min(3, Math.round(score)));
 	}
+
+	function displayTaskTitle(taskTitle: string): string {
+		return taskTitle
+			.replace(/^[A-Z]{2,}(?:-[A-Z]{2,})*-\d+\.\s*/i, '')
+			.replace(/^\d+\.\s*/, '')
+			.trim();
+	}
 </script>
 
 <div class="max-w-4xl mx-auto px-3 py-6 sm:px-6">
@@ -286,7 +293,7 @@
 
 				<!-- Rubric Progress -->
 				<div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col justify-center items-center text-center">
-					<div class="text-gray-500 text-sm font-medium mb-2">노드 점수</div>
+					<div class="text-gray-500 text-sm font-medium mb-2">노드 진행률</div>
 					<div class="relative w-24 h-24 flex items-center justify-center">
 						<svg class="w-full h-full transform -rotate-90">
 							<circle cx="48" cy="48" r="40" stroke="currentColor" stroke-width="8" fill="transparent" class="text-gray-100" />
@@ -430,19 +437,19 @@
 					{#if rubricData && rubricData.tasks.length > 0}
 						<div class="divide-y divide-gray-100">
 							{#each rubricData.tasks as task}
-								<div class="p-6">
-									<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-purple-50/40 border border-purple-100 rounded-xl px-4 py-4">
+								<div class="p-3">
+									<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-purple-50/40 border border-purple-100 rounded-lg px-3 py-2.5">
 										<h4 class="font-semibold text-gray-800 text-base sm:text-lg flex items-center gap-2">
 											<span class="w-1.5 h-5 bg-purple-600 rounded-full"></span>
-											프로젝트 : {task.task_title}
+											프로젝트 : {displayTaskTitle(task.task_title)}
 										</h4>
-										<div class="flex items-center gap-3">
+										<div class="flex items-center gap-2">
 											<div class="flex items-center gap-1" aria-label={`휴먼 점수 ${nodeStarCount(task.total_human)}점`}>
 												{#each [0, 1, 2] as star}
-													<span class={`text-2xl leading-none ${star < nodeStarCount(task.total_human) ? 'text-amber-400' : 'text-gray-300'}`}>★</span>
+													<span class={`text-xl leading-none ${star < nodeStarCount(task.total_human) ? 'text-amber-400' : 'text-gray-300'}`}>★</span>
 												{/each}
 											</div>
-											<span class="text-sm font-semibold text-gray-600">{nodeStarCount(task.total_human)}점</span>
+											<span class="text-xs font-semibold text-gray-600">{nodeStarCount(task.total_human)}점</span>
 										</div>
 									</div>
 								</div>
