@@ -22,9 +22,8 @@
 	let totalQuests = $derived(data?.scores.length || 0);
 	let completedQuests = $derived(data?.scores.filter((s) => s.is_submitted).length || 0);
 
-	let completedRubrics = $derived(rubricData?.tasks.filter((t) => t.is_graded).length || 0);
-	let totalRubrics = $derived(rubricData?.total_rubric_tasks || rubricData?.tasks.length || 0);
-	let rubricProgressPercent = $derived(totalRubrics > 0 ? Math.round((completedRubrics / totalRubrics) * 100) : 0);
+	let completedRubrics = $derived(rubricData?.tasks.length || 0);
+	let totalRubrics = $derived(rubricData?.total_rubric_tasks || 0);
 
 	let rubricTotalScore = $derived(
 		rubricData?.tasks.reduce((sum, t) => sum + t.total_human + t.total_gpt, 0) || 0
@@ -265,15 +264,15 @@
 								stroke="currentColor" stroke-width="8" 
 								fill="transparent" 
 								stroke-dasharray={2 * Math.PI * 40} 
-								stroke-dashoffset={2 * Math.PI * 40 * (1 - (totalRubrics > 0 ? completedRubrics / totalRubrics : 0))} 
+								stroke-dashoffset="0" 
 								class="text-purple-500 transition-all duration-1000" 
 							/>
 						</svg>
 						<span class="absolute text-xl font-bold text-gray-700">
-							{rubricProgressPercent}%
+							{completedRubrics}건
 						</span>
 					</div>
-					<p class="text-xs text-gray-400 mt-2">{completedRubrics} / {totalRubrics} 채점 완료</p>
+					<p class="text-xs text-gray-400 mt-2">평가 완료</p>
 				</div>
 
 				<div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col justify-center col-span-2">
@@ -377,16 +376,12 @@
 											{needsProjectPrefix(displayTaskTitle(task.task_title)) ? '프로젝트: ' : ''}{displayTaskTitle(task.task_title)}
 										</h4>
 										<div class="flex items-center gap-2">
-											{#if task.is_graded}
-												<div class="flex items-center gap-1" aria-label={`휴먼 점수 ${nodeStarCount(task.total_human)}점`}>
-													{#each [0, 1, 2] as star}
-														<span class={`text-xl leading-none ${star < nodeStarCount(task.total_human) ? 'text-amber-400' : 'text-gray-300'}`}>★</span>
-													{/each}
-												</div>
-												<span class="text-xs font-semibold text-gray-600">{nodeStarCount(task.total_human)}점</span>
-											{:else}
-												<span class="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-500 border border-gray-200">채점 전</span>
-											{/if}
+											<div class="flex items-center gap-1" aria-label={`휴먼 점수 ${nodeStarCount(task.total_human)}점`}>
+												{#each [0, 1, 2] as star}
+													<span class={`text-xl leading-none ${star < nodeStarCount(task.total_human) ? 'text-amber-400' : 'text-gray-300'}`}>★</span>
+												{/each}
+											</div>
+											<span class="text-xs font-semibold text-gray-600">{nodeStarCount(task.total_human)}점</span>
 										</div>
 									</div>
 								</div>

@@ -85,7 +85,6 @@ class TaskRubricOut(BaseModel):
     total_human: int = 0
     total_gpt: int = 0
     max_score: int = 0
-    is_graded: bool = True
 
 
 class StudentRubricResponse(BaseModel):
