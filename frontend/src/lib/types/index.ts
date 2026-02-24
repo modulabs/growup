@@ -129,6 +129,7 @@ export interface TaskRubricOut {
 	total_human: number;
 	total_gpt: number;
 	max_score: number;
+	is_graded: boolean;
 }
 
 export interface StudentRubricResponse {

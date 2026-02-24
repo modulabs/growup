@@ -20,6 +20,7 @@ from app.schemas.score import (
     TaskRubricOut,
 )
 from app.services.legacy_service import (
+    get_rubric_task_titles,
     get_rubric_scores_for_student,
     get_total_rubric_count,
 )
@@ -155,6 +156,7 @@ async def my_rubrics(
         )
 
     rows = await get_rubric_scores_for_student(uid, course.legacy_user_group_id)
+    all_task_titles = await get_rubric_task_titles(course.legacy_user_group_id)
 
     tasks_map: dict[str, list] = defaultdict(list)
     overall_map: dict[str, str | None] = {}
@@ -165,7 +167,9 @@ async def my_rubrics(
             overall_map[title] = r["overall_feedback"]
 
     tasks: list[TaskRubricOut] = []
-    for title, items in tasks_map.items():
+    merged_titles = sorted(set(all_task_titles) | set(tasks_map.keys()))
+    for title in merged_titles:
+        items = tasks_map.get(title, [])
         rubric_items = [
             RubricItemOut(
                 rubric_metric=it.get("rubric_metric", ""),
@@ -187,6 +191,7 @@ async def my_rubrics(
                 total_human=total_human,
                 total_gpt=total_gpt,
                 max_score=len(rubric_items),
+                is_graded=len(rubric_items) > 0,
             )
         )
 
