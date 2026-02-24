@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="/growup/favicon.png" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate" />
+		<meta http-equiv="pragma" content="no-cache" />
+		<meta http-equiv="expires" content="0" />
+		
+		<link rel="modulepreload" href="/growup/_app/immutable/entry/start.BLQGNQae.js">
+		<link rel="modulepreload" href="/growup/_app/immutable/chunks/mFQhxeed.js">
+		<link rel="modulepreload" href="/growup/_app/immutable/chunks/CcVkWGgp.js">
+		<link rel="modulepreload" href="/growup/_app/immutable/chunks/BukajRYZ.js">
+		<link rel="modulepreload" href="/growup/_app/immutable/chunks/1hPTKaIJ.js">
+		<link rel="modulepreload" href="/growup/_app/immutable/entry/app.BaxWhQPL.js">
+		<link rel="modulepreload" href="/growup/_app/immutable/chunks/Dap9sqf4.js">
+		<link rel="modulepreload" href="/growup/_app/immutable/chunks/_V9dK3ok.js">
+		<link rel="modulepreload" href="/growup/_app/immutable/chunks/BSGnc2-w.js">
+		<link rel="modulepreload" href="/growup/_app/immutable/chunks/D0cPPFsj.js">
+		<link rel="modulepreload" href="/growup/_app/immutable/chunks/Dn1l8nLM.js">
+		<link rel="modulepreload" href="/growup/_app/env.js">
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">
+			<script>
+				{
+					__sveltekit_solj1v = {
+						base: "/growup",
+						assets: "/growup",
+						env: null
+					};
+
+					const element = document.currentScript.parentElement;
+
+					import("/growup/_app/env.js").then(({ env }) => {
+						__sveltekit_solj1v.env = env;
+
+						Promise.all([
+							import("/growup/_app/immutable/entry/start.BLQGNQae.js"),
+							import("/growup/_app/immutable/entry/app.BaxWhQPL.js")
+						]).then(([kit, app]) => {
+							kit.start(app, element);
+						});
+					});
+				}
+			</script>
+		</div>
+	</body>
+</html>
