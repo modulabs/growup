@@ -112,6 +112,10 @@
 			return dateStr;
 		}
 	}
+
+	function nodeStarCount(score: number): number {
+		return Math.max(0, Math.min(3, Math.round(score)));
+	}
 </script>
 
 <div class="max-w-4xl mx-auto px-3 py-6 sm:px-6">
@@ -198,7 +202,7 @@
 
 				<!-- Rubric Progress -->
 				<div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col justify-center items-center text-center">
-					<div class="text-gray-500 text-sm font-medium mb-2">루브릭 평가</div>
+					<div class="text-gray-500 text-sm font-medium mb-2">노드 점수</div>
 					<div class="relative w-24 h-24 flex items-center justify-center">
 						<svg class="w-full h-full transform -rotate-90">
 							<circle cx="48" cy="48" r="40" stroke="currentColor" stroke-width="8" fill="transparent" class="text-gray-100" />
@@ -243,7 +247,7 @@
 					class="px-6 py-4 text-sm font-medium transition-colors border-b-2 {activeTab === 'rubrics' ? 'border-purple-600 text-purple-600 bg-purple-50/50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'} cursor-pointer"
 					onclick={() => activeTab = 'rubrics'}
 				>
-					루브릭 평가
+					노드 점수
 				</button>
 				<button 
 					class="px-6 py-4 text-sm font-medium transition-colors border-b-2 {activeTab === 'bonus' ? 'border-amber-600 text-amber-600 bg-amber-50/50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'} cursor-pointer"
@@ -306,66 +310,31 @@
 					{/if}
 				{/if}
 
-				<!-- Tab: Rubrics -->
 				{#if activeTab === 'rubrics'}
 					{#if rubricData && rubricData.tasks.length > 0}
 						<div class="divide-y divide-gray-100">
 							{#each rubricData.tasks as task}
 								<div class="p-6">
-									<div class="flex justify-between items-start mb-4">
-										<h4 class="font-bold text-gray-800 text-lg flex items-center gap-2">
-											<span class="w-1.5 h-6 bg-purple-600 rounded-full"></span>
-											{task.task_title}
+									<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-purple-50/40 border border-purple-100 rounded-xl px-4 py-4">
+										<h4 class="font-semibold text-gray-800 text-base sm:text-lg flex items-center gap-2">
+											<span class="w-1.5 h-5 bg-purple-600 rounded-full"></span>
+											프로젝트 : {task.task_title}
 										</h4>
-										<div class="flex gap-2">
-											<div class="text-center bg-gray-100 px-3 py-1 rounded-lg">
-												<div class="text-xs text-gray-500">Human</div>
-												<div class="font-bold text-gray-700">{task.total_human}</div>
-											</div>
-											<div class="text-center bg-purple-100 px-3 py-1 rounded-lg">
-												<div class="text-xs text-purple-600">GPT</div>
-												<div class="font-bold text-purple-700">{task.total_gpt}</div>
-											</div>
-										</div>
-									</div>
-
-									{#if task.overall_feedback}
-										<div class="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 mb-4 border border-gray-100 leading-relaxed">
-											<span class="font-bold text-gray-900 block mb-2">💡 총평</span>
-											{task.overall_feedback}
-										</div>
-									{/if}
-
-									<div class="overflow-x-auto border border-gray-100 rounded-lg">
-										<table class="w-full text-sm">
-											<thead class="bg-gray-50">
-												<tr class="text-gray-500 text-xs uppercase">
-													<th class="px-4 py-3 text-left w-1/3">평가 항목</th>
-													<th class="px-4 py-3 text-center w-20">Human</th>
-													<th class="px-4 py-3 text-center w-20">GPT</th>
-													<th class="px-4 py-3 text-left">피드백</th>
-												</tr>
-											</thead>
-											<tbody class="divide-y divide-gray-100">
-												{#each task.rubric_items as item}
-													<tr>
-														<td class="px-4 py-3 text-gray-700 font-medium">{item.rubric_metric}</td>
-														<td class="px-4 py-3 text-center text-gray-600">{item.human_score ?? '-'}</td>
-														<td class="px-4 py-3 text-center text-purple-600 font-medium">{item.gpt_score ?? '-'}</td>
-														<td class="px-4 py-3 text-gray-600 text-xs whitespace-pre-wrap leading-relaxed">
-															{item.feedback || '-'}
-														</td>
-													</tr>
+										<div class="flex items-center gap-3">
+											<div class="flex items-center gap-1" aria-label={`휴먼 점수 ${nodeStarCount(task.total_human)}점`}>
+												{#each [0, 1, 2] as star}
+													<span class={`text-2xl leading-none ${star < nodeStarCount(task.total_human) ? 'text-amber-400' : 'text-gray-300'}`}>★</span>
 												{/each}
-											</tbody>
-										</table>
+											</div>
+											<span class="text-sm font-semibold text-gray-600">{nodeStarCount(task.total_human)}점</span>
+										</div>
 									</div>
 								</div>
 							{/each}
 						</div>
 					{:else}
 						<div class="text-center py-20 text-gray-500 bg-gray-50/50">
-							<p class="mb-2">루브릭 평가 데이터가 없습니다.</p>
+							<p class="mb-2">노드 점수 데이터가 없습니다.</p>
 							<p class="text-sm text-gray-400">아직 평가가 진행되지 않았거나 데이터가 연동되지 않았습니다.</p>
 						</div>
 					{/if}
