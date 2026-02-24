@@ -98,15 +98,15 @@
 	function questTypeBadgeClass(questType: string): string {
 		switch (questType) {
 			case 'sub':
-				return 'bg-sky-50 text-sky-700 border-sky-200';
+				return 'bg-cyan-100 text-cyan-900 border-cyan-300';
 			case 'main':
-				return 'bg-violet-50 text-violet-700 border-violet-200';
+				return 'bg-indigo-100 text-indigo-900 border-indigo-300';
 			case 'datathon':
-				return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+				return 'bg-emerald-100 text-emerald-900 border-emerald-300';
 			case 'ideathon':
-				return 'bg-rose-50 text-rose-700 border-rose-200';
+				return 'bg-fuchsia-100 text-fuchsia-900 border-fuchsia-300';
 			default:
-				return 'bg-gray-50 text-gray-700 border-gray-200';
+				return 'bg-gray-100 text-gray-800 border-gray-300';
 		}
 	}
 
@@ -125,11 +125,11 @@
 		if (score === null) return 'bg-gray-100 text-gray-500 border-gray-200';
 		const max = getQuestMaxScore(questType, score);
 		const ratio = max > 0 ? score / max : 0;
-		if (ratio <= 0) return 'bg-red-50 text-red-700 border-red-200';
-		if (ratio < 0.4) return 'bg-orange-50 text-orange-700 border-orange-200';
-		if (ratio < 0.75) return 'bg-amber-50 text-amber-700 border-amber-200';
-		if (ratio < 1) return 'bg-lime-50 text-lime-700 border-lime-200';
-		return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+		if (ratio <= 0) return 'bg-red-100 text-red-900 border-red-300';
+		if (ratio < 0.4) return 'bg-orange-100 text-orange-900 border-orange-300';
+		if (ratio < 0.75) return 'bg-yellow-100 text-yellow-900 border-yellow-300';
+		if (ratio < 1) return 'bg-lime-100 text-lime-900 border-lime-300';
+		return 'bg-emerald-200 text-emerald-950 border-emerald-400';
 	}
 
 	function scoreLabel(score: number | null, isSubmitted: boolean, questType: string): string {
