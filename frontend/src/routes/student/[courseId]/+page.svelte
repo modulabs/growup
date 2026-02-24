@@ -68,6 +68,44 @@
 
 	let activeTab = $state<'quests' | 'rubrics' | 'bonus'>('quests');
 
+	let questHistograms = $derived.by(() => {
+		if (!data) return [];
+		const orderedTypes = ['sub', 'main', 'datathon', 'ideathon'];
+		const binCount = 5;
+
+		return orderedTypes
+			.map((questType) => {
+				const allRows = data.scores.filter((row) => row.quest_type === questType);
+				if (allRows.length === 0) return null;
+
+				const maxScore = (SCORE_RULES[questType] || SCORE_RULES['main']).max;
+				const bins = Array.from({ length: binCount }, () => 0);
+				let gradedCount = 0;
+
+				allRows.forEach((row) => {
+					if (!row.is_submitted || row.score === null) return;
+					gradedCount += 1;
+					const ratio = maxScore > 0 ? Math.max(0, Math.min(1, row.score / maxScore)) : 0;
+					const index = Math.min(binCount - 1, Math.floor(ratio * binCount));
+					bins[index] += 1;
+				});
+
+				const maxBin = Math.max(...bins, 1);
+
+				return {
+					questType,
+					label: QUEST_TYPE_LABELS[questType] || questType,
+					maxScore,
+					totalCount: allRows.length,
+					gradedCount,
+					bins,
+					maxBin,
+					isMain: questType === 'main'
+				};
+			})
+			.filter((row): row is NonNullable<typeof row> => row !== null);
+	});
+
 	onMount(async () => {
 		if (!$isLoggedIn) {
 			goto(`${base}/login`);
@@ -113,11 +151,7 @@
 	function getQuestMaxScore(questType: string, score: number | null): number {
 		const baseMax = (SCORE_RULES[questType] || SCORE_RULES['main']).max;
 		if (score === null) return baseMax;
-		if (questType === 'main' && score > baseMax) {
-			if (score <= 10) return 10;
-			if (score <= 20) return 20;
-		}
-		return Math.max(baseMax, score);
+		return baseMax;
 	}
 
 	function scoreVisualClass(score: number | null, isSubmitted: boolean, questType: string): string {
@@ -136,7 +170,23 @@
 		if (!isSubmitted) return '미제출';
 		if (score === null) return '-';
 		const max = getQuestMaxScore(questType, score);
+		if (score > max) return `${score}점`;
 		return `${score} / ${max}`;
+	}
+
+	function histogramColorClass(questType: string): string {
+		switch (questType) {
+			case 'sub':
+				return 'bg-cyan-500';
+			case 'main':
+				return 'bg-indigo-500';
+			case 'datathon':
+				return 'bg-emerald-500';
+			case 'ideathon':
+				return 'bg-fuchsia-500';
+			default:
+				return 'bg-gray-400';
+		}
 	}
 
 	function formatDate(dateStr: string): string {
@@ -338,6 +388,36 @@
 								{/each}
 							</tbody>
 						</table>
+					</div>
+					<div class="border-t border-gray-100 bg-gray-50/60 px-4 py-3">
+						<div class="mb-2 flex items-center justify-between">
+							<p class="text-xs font-semibold text-gray-600">유형별 점수 분포</p>
+							<p class="text-[11px] text-gray-500">구간: 0-20% / 20-40% / 40-60% / 60-80% / 80-100%</p>
+						</div>
+						<div class="space-y-2">
+							{#each questHistograms as hist}
+								<div class="rounded-lg border border-gray-200 bg-white px-3 py-2">
+									<div class="mb-2 flex flex-wrap items-center gap-2 text-xs">
+										<span class={`px-2 py-0.5 rounded border ${questTypeBadgeClass(hist.questType)}`}>{hist.label}</span>
+										<span class="text-gray-500">채점 {hist.gradedCount}/{hist.totalCount}</span>
+										<span class="text-gray-500">만점 기준 {hist.maxScore}점{hist.isMain ? ' (기본)' : ''}</span>
+									</div>
+									<div class="grid grid-cols-5 gap-1">
+										{#each hist.bins as count}
+											<div class="h-6 rounded-sm bg-gray-100 overflow-hidden">
+												{#if count > 0}
+													<div
+														class={`h-full ${histogramColorClass(hist.questType)}`}
+														style={`opacity: ${Math.max(0.35, count / hist.maxBin)};`}
+													></div>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/each}
+						</div>
+						<p class="mt-2 text-[11px] text-gray-500">메인퀘스트는 기본 만점 5점으로 계산됩니다. 과제별 커스텀 만점(예: 10/20)은 현재 API 응답에 만점 값이 없어서 별도 표시는 제한됩니다.</p>
 					</div>
 					{:else}
 						<div class="text-center py-20 text-gray-500">
