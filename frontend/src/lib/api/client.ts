@@ -3,7 +3,7 @@ import { base } from '$app/paths';
 import { get } from 'svelte/store';
 import { authToken, logout } from '$lib/stores/auth';
 
-const API_BASE = env.PUBLIC_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = env.PUBLIC_API_BASE_URL || 'https://modulabs.ddns.net/growup';
 
 class ApiError extends Error {
 	status: number;
