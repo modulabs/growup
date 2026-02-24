@@ -208,6 +208,10 @@
 			.replace(/^\d+\.\s*/, '')
 			.trim();
 	}
+
+	function needsProjectPrefix(taskTitle: string): boolean {
+		return !/프로젝트/i.test(taskTitle);
+	}
 </script>
 
 <div class="max-w-4xl mx-auto px-3 py-6 sm:px-6">
@@ -442,7 +446,7 @@
 									<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-purple-50/40 border border-purple-100 rounded-lg px-3 py-2.5">
 										<h4 class="font-semibold text-gray-800 text-base sm:text-lg flex items-center gap-2">
 											<span class="w-1.5 h-5 bg-purple-600 rounded-full"></span>
-											프로젝트: {displayTaskTitle(task.task_title)}
+											{needsProjectPrefix(displayTaskTitle(task.task_title)) ? '프로젝트: ' : ''}{displayTaskTitle(task.task_title)}
 										</h4>
 										<div class="flex items-center gap-2">
 											<div class="flex items-center gap-1" aria-label={`휴먼 점수 ${nodeStarCount(task.total_human)}점`}>
