@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db, require_student
+from app.core.deps import get_current_user, get_db, require_student
 from app.models.bonus import BonusScore
 from app.models.cache import CachedCourse, CachedEnrollment, CachedUser
 from app.models.quest import Quest, QuestScore
@@ -49,10 +49,24 @@ async def list_my_courses(
 @router.get("/courses/{course_id}/scores", response_model=CourseScoreSummary)
 async def my_scores(
     course_id: int,
+    student_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(require_student),
+    current_user: dict = Depends(get_current_user),
 ):
-    uid = current_user["legacy_user_id"]
+    viewer_role = current_user.get("role")
+    viewer_id = current_user["legacy_user_id"]
+
+    if viewer_role == "student":
+        uid = viewer_id
+    elif viewer_role == "facilitator":
+        if student_id is None:
+            raise HTTPException(status_code=422, detail="student_id query is required for facilitator")
+        enrollment = await db.get(CachedEnrollment, (student_id, course_id))
+        if not enrollment:
+            raise HTTPException(status_code=404, detail="Student not enrolled in this course")
+        uid = student_id
+    else:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     # Get course name
     course = await db.get(CachedCourse, course_id)
@@ -141,10 +155,24 @@ async def my_scores(
 @router.get("/courses/{course_id}/rubrics", response_model=StudentRubricResponse)
 async def my_rubrics(
     course_id: int,
+    student_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(require_student),
+    current_user: dict = Depends(get_current_user),
 ):
-    uid = current_user["legacy_user_id"]
+    viewer_role = current_user.get("role")
+    viewer_id = current_user["legacy_user_id"]
+
+    if viewer_role == "student":
+        uid = viewer_id
+    elif viewer_role == "facilitator":
+        if student_id is None:
+            raise HTTPException(status_code=422, detail="student_id query is required for facilitator")
+        enrollment = await db.get(CachedEnrollment, (student_id, course_id))
+        if not enrollment:
+            raise HTTPException(status_code=404, detail="Student not enrolled in this course")
+        uid = student_id
+    else:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     course = await db.get(CachedCourse, course_id)
     if not course:

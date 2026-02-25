@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { api } from '$lib/api/client';
-	import { isLoggedIn, activeCourses } from '$lib/stores/auth';
+	import { isLoggedIn, activeCourses, userRole } from '$lib/stores/auth';
 	import { addToast } from '$lib/stores/toast';
 	import { SCORE_RULES, QUEST_TYPE_LABELS } from '$lib/types';
 	import type { CourseScoreSummary, StudentRubricResponse, TaskRubricOut } from '$lib/types';
@@ -14,6 +14,7 @@
 	let data = $state<CourseScoreSummary | null>(null);
 	let rubricData = $state<StudentRubricResponse | null>(null);
 	let courseId = $derived(page.params.courseId);
+	let viewedStudentId = $derived(page.url.searchParams.get('student_id'));
 	let courseName = $derived(
 		$activeCourses.find((c) => String(c.legacy_course_id) === courseId)?.name || '과정'
 	);
@@ -80,7 +81,8 @@
 	async function loadScores() {
 		loading = true;
 		try {
-			data = await api.get<CourseScoreSummary>(`/api/v1/student/courses/${courseId}/scores`);
+			const query = $userRole === 'facilitator' && viewedStudentId ? `?student_id=${viewedStudentId}` : '';
+			data = await api.get<CourseScoreSummary>(`/api/v1/student/courses/${courseId}/scores${query}`);
 		} catch (err) {
 			addToast('점수 데이터를 불러올 수 없습니다.', 'error');
 		} finally {
@@ -90,7 +92,8 @@
 
 	async function loadRubrics() {
 		try {
-			rubricData = await api.get<StudentRubricResponse>(`/api/v1/student/courses/${courseId}/rubrics`);
+			const query = $userRole === 'facilitator' && viewedStudentId ? `?student_id=${viewedStudentId}` : '';
+			rubricData = await api.get<StudentRubricResponse>(`/api/v1/student/courses/${courseId}/rubrics${query}`);
 		} catch (err) {
 			console.error('Failed to load rubrics:', err);
 		}

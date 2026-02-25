@@ -535,7 +535,7 @@
 								{#each activeStudents as student}
 									<tr class="border-b border-gray-300 hover:bg-gray-50/70">
 										<td class="sticky left-0 z-10 bg-white px-2 py-1 font-medium text-gray-800 border-r border-gray-300">
-											<button onclick={() => openStudentModal(student)} class="text-left hover:text-blue-700 cursor-pointer truncate max-w-[150px] leading-tight">{student.name}</button>
+											<button onclick={() => goto(`${base}/student/${courseId}?student_id=${student.legacy_user_id}`)} class="text-left hover:text-blue-700 cursor-pointer truncate max-w-[150px] leading-tight">{student.name}</button>
 										</td>
 										{#each sortedQuests as quest}
 											<td class="p-0 border-r border-gray-200 group">
