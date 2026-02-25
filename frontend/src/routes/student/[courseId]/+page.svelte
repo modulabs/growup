@@ -4,10 +4,10 @@
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { api } from '$lib/api/client';
-	import { isLoggedIn, activeCourses } from '$lib/stores/auth';
+	import { isLoggedIn, activeCourses, userRole } from '$lib/stores/auth';
 	import { addToast } from '$lib/stores/toast';
 	import { SCORE_RULES, QUEST_TYPE_LABELS } from '$lib/types';
-	import type { CourseScoreSummary, StudentRubricResponse, TaskRubricOut } from '$lib/types';
+	import type { BonusScoreOut, CourseScoreSummary, Quest, ScoreOut, StudentRubricResponse, TaskRubricOut } from '$lib/types';
 	import LoadingSkeleton from '$lib/components/LoadingSkeleton.svelte';
 
 	let loading = $state(true);
@@ -75,7 +75,11 @@
 			goto(`${base}/login`);
 			return;
 		}
-		await Promise.all([loadScores(), loadRubrics()]);
+		if (viewedStudentId && $userRole === 'facilitator') {
+			await Promise.all([loadScoresAsFacilitatorView(), loadRubricsAsFacilitatorView()]);
+		} else {
+			await Promise.all([loadScores(), loadRubrics()]);
+		}
 	});
 
 	async function loadScores() {
@@ -90,10 +94,67 @@
 		}
 	}
 
+	async function loadScoresAsFacilitatorView() {
+		loading = true;
+		try {
+			const studentId = Number(viewedStudentId);
+			const [quests, bonusAll] = await Promise.all([
+				api.get<Quest[]>(`/api/v1/facilitator/courses/${courseId}/quests`),
+				api.get<BonusScoreOut[]>(`/api/v1/facilitator/courses/${courseId}/bonus-scores`)
+			]);
+
+			const questRows = await Promise.all(
+				quests
+					.sort((a, b) => a.quest_number - b.quest_number)
+					.map(async (q) => {
+						const rows = await api.get<ScoreOut[]>(`/api/v1/facilitator/quests/${q.id}/students`);
+						const mine = rows.find((r) => r.legacy_student_id === studentId);
+						return {
+							quest_id: q.id,
+							quest_number: q.quest_number,
+							quest_type: q.quest_type,
+							title: q.title,
+							quest_date: q.quest_date,
+							score: mine?.score ?? null,
+							is_submitted: mine?.is_submitted ?? false
+						};
+					})
+			);
+
+			const bonus = bonusAll.filter((b) => b.legacy_student_id === studentId);
+			const totalQuest = questRows.reduce((sum, r) => sum + (r.score ?? 0), 0);
+			const totalBonus = bonus.reduce((sum, b) => sum + b.score, 0);
+
+			data = {
+				legacy_course_id: Number(courseId),
+				course_name: courseName,
+				scores: questRows,
+				bonus_scores: bonus,
+				total_quest_score: totalQuest,
+				total_bonus_score: totalBonus,
+				total_score: totalQuest + totalBonus
+			};
+		} catch {
+			addToast('점수 데이터를 불러올 수 없습니다.', 'error');
+		} finally {
+			loading = false;
+		}
+	}
+
 	async function loadRubrics() {
 		try {
 			const query = viewedStudentId ? `?student_id=${viewedStudentId}` : '';
 			rubricData = await api.get<StudentRubricResponse>(`/api/v1/student/courses/${courseId}/rubrics${query}`);
+		} catch (err) {
+			console.error('Failed to load rubrics:', err);
+		}
+	}
+
+	async function loadRubricsAsFacilitatorView() {
+		try {
+			rubricData = await api.get<StudentRubricResponse>(
+				`/api/v1/facilitator/courses/${courseId}/students/${viewedStudentId}/rubrics`
+			);
 		} catch (err) {
 			console.error('Failed to load rubrics:', err);
 		}
