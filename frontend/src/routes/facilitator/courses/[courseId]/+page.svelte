@@ -86,6 +86,23 @@
 		return 'bg-emerald-100 text-emerald-800';
 	}
 
+	function studentRowQuestTotal(studentId: number): number {
+		let total = 0;
+		for (const quest of sortedQuests) {
+			const cell = getCell(studentId, quest.id);
+			if (!cell.isSubmitted) continue;
+			const value = Number(cell.score);
+			if (Number.isNaN(value)) continue;
+			total += value;
+		}
+		return total;
+	}
+
+	function formatStudentRowQuestTotal(studentId: number): string {
+		const total = studentRowQuestTotal(studentId);
+		return Number.isInteger(total) ? String(total) : total.toFixed(1);
+	}
+
 	// Quest create modal
 	let showModal = $state(false);
 	let modalLoading = $state(false);
@@ -511,7 +528,7 @@
 					<table class="w-full min-w-[980px] text-sm border-collapse">
 						<thead class="bg-gray-100">
 							<tr>
-								<th class="sticky left-0 z-10 bg-gray-100 px-2 py-1 text-left font-semibold text-gray-700 min-w-[160px] border-r border-b border-gray-300">학생</th>
+							<th class="sticky left-0 z-20 bg-gray-100 px-1 py-1 text-center font-semibold text-gray-700 min-w-[112px] border-r border-b border-gray-300">학생</th>
 								{#each sortedQuests as quest}
 									<th class="px-1 py-1 text-center min-w-[120px] border-r border-b border-gray-300">
 										<div class="flex flex-col items-center gap-1">
@@ -524,18 +541,19 @@
 								<th class="px-1 py-1 text-center min-w-[60px] border-b border-gray-300">
 									<button onclick={openCreateModal} class="w-8 h-8 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-blue-600 hover:border-blue-400 cursor-pointer">+</button>
 								</th>
+								<th class="sticky right-0 z-20 bg-gray-100 px-2 py-1 text-center font-semibold text-gray-700 min-w-[92px] border-l border-b border-gray-300">총합</th>
 							</tr>
 						</thead>
 						<tbody>
 							{#if loading || matrixLoading}
-								<tr><td colspan={sortedQuests.length + 2} class="px-3 py-6 text-center text-gray-500">점수표를 불러오는 중입니다...</td></tr>
+								<tr><td colspan={sortedQuests.length + 3} class="px-3 py-6 text-center text-gray-500">점수표를 불러오는 중입니다...</td></tr>
 							{:else if sortedQuests.length === 0}
-								<tr><td colspan={2} class="px-3 py-6 text-center text-gray-500">열 끝 + 버튼으로 퀘스트를 추가하세요.</td></tr>
+								<tr><td colspan={3} class="px-3 py-6 text-center text-gray-500">열 끝 + 버튼으로 퀘스트를 추가하세요.</td></tr>
 							{:else}
 								{#each activeStudents as student}
 									<tr class="border-b border-gray-300 hover:bg-gray-50/70">
-										<td class="sticky left-0 z-10 bg-white px-2 py-1 font-medium text-gray-800 border-r border-gray-300">
-											<button onclick={() => goto(`${base}/student/${courseId}?student_id=${student.legacy_user_id}`)} class="text-left hover:text-blue-700 cursor-pointer truncate max-w-[150px] leading-tight">{student.name}</button>
+										<td class="sticky left-0 z-10 bg-white px-1 py-1 font-medium text-gray-800 border-r border-gray-300 text-center">
+											<button onclick={() => goto(`${base}/student/${courseId}?student_id=${student.legacy_user_id}`)} class="w-full text-center hover:text-blue-700 cursor-pointer truncate max-w-[108px] mx-auto leading-tight">{student.name}</button>
 										</td>
 										{#each sortedQuests as quest}
 											<td class="p-0 border-r border-gray-200 group">
@@ -558,6 +576,7 @@
 											</td>
 										{/each}
 											<td class="p-0"></td>
+											<td class="sticky right-0 z-10 bg-white px-2 py-1 text-center border-l border-gray-300 font-semibold text-indigo-700">{formatStudentRowQuestTotal(student.legacy_user_id)}</td>
 									</tr>
 								{/each}
 							{/if}
