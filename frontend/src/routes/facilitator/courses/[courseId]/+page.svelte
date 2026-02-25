@@ -450,8 +450,8 @@
 	</div>
 
 	<!-- Two-column layout: Quests (left) | Bonus (right) -->
-	<div class="flex flex-col lg:flex-row gap-6 items-start">
-		<!-- LEFT: Quest list -->
+	<div class="space-y-6">
+		
 		<div class="flex-1 min-w-0">
 			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
 				<h2 class="text-lg font-semibold text-gray-700">학생 x 퀘스트 점수표</h2>
@@ -476,9 +476,9 @@
 					<table class="w-full min-w-[980px] text-sm">
 						<thead class="bg-gray-50 border-b border-gray-200">
 							<tr>
-								<th class="sticky left-0 z-10 bg-gray-50 px-3 py-2 text-left font-medium text-gray-600 min-w-[170px]">학생</th>
+								<th class="sticky left-0 z-10 bg-gray-50 px-2.5 py-1.5 text-left font-medium text-gray-600 min-w-[160px]">학생</th>
 								{#each sortedQuests as quest}
-									<th class="px-2 py-2 text-center min-w-[130px]">
+									<th class="px-1.5 py-1.5 text-center min-w-[120px]">
 										<div class="flex flex-col items-center gap-1">
 											<button class="text-xs font-semibold text-gray-700 hover:text-blue-700 cursor-pointer" onclick={() => openEditModal(quest)}>
 												{quest.title || `${QUEST_TYPE_LABELS[quest.quest_type]} #${quest.quest_number}`}
@@ -486,7 +486,7 @@
 										</div>
 									</th>
 								{/each}
-								<th class="px-2 py-2 text-center min-w-[70px]">
+									<th class="px-1.5 py-1.5 text-center min-w-[60px]">
 									<button onclick={openCreateModal} class="w-8 h-8 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-blue-600 hover:border-blue-400 cursor-pointer">+</button>
 								</th>
 							</tr>
@@ -498,17 +498,19 @@
 								<tr><td colspan={2} class="px-3 py-6 text-center text-gray-500">열 끝 + 버튼으로 퀘스트를 추가하세요.</td></tr>
 							{:else}
 								{#each activeStudents as student}
-									<tr class="hover:bg-gray-50/70">
-										<td class="sticky left-0 z-10 bg-white px-3 py-2 font-medium text-gray-800">{student.name}</td>
-										{#each sortedQuests as quest}
-											<td class="px-2 py-2">
-												<div class="flex items-center justify-center gap-1">
+										<tr class="hover:bg-gray-50/70">
+											<td class="sticky left-0 z-10 bg-white px-2.5 py-1.5 font-medium text-gray-800">
+												<button onclick={() => openStudentModal(student)} class="text-left hover:text-blue-700 cursor-pointer truncate max-w-[150px]">{student.name}</button>
+											</td>
+											{#each sortedQuests as quest}
+												<td class="px-1.5 py-1">
+													<div class="flex items-center justify-center gap-1">
 													<input
 														type="text"
 														inputmode="decimal"
 														value={getCell(student.legacy_user_id, quest.id).score}
 														oninput={(e) => handleMatrixInput(student.legacy_user_id, quest, (e.currentTarget as HTMLInputElement).value)}
-														class={`w-16 px-2 py-1 text-center border rounded text-sm focus:outline-none focus:ring-2 ${getCell(student.legacy_user_id, quest.id).error ? 'border-red-400 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'}`}
+														class={`w-14 px-1.5 py-0.5 text-center border rounded text-xs focus:outline-none focus:ring-1 ${getCell(student.legacy_user_id, quest.id).error ? 'border-red-400 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'}`}
 														placeholder="-"
 													/>
 													{#if getCell(student.legacy_user_id, quest.id).saving}
@@ -519,7 +521,7 @@
 												</div>
 											</td>
 										{/each}
-										<td class="px-2 py-2"></td>
+											<td class="px-1 py-1"></td>
 									</tr>
 								{/each}
 							{/if}
@@ -706,11 +708,10 @@
 		</div>
 
 		<!-- RIGHT: Bonus scores (sticky sidebar) -->
-		<div class="w-full lg:w-[380px] flex-shrink-0 lg:sticky lg:top-6">
+		<div class="w-full">
 			<h2 class="text-lg font-semibold text-gray-700 mb-4">비정규 점수 관리</h2>
-
-			<!-- Add bonus score form -->
-			<div class="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+			<div class="bg-white rounded-lg border border-gray-200 p-4">
 				<h3 class="text-sm font-medium text-gray-700 mb-3">비정규 점수 부여</h3>
 				<div class="space-y-3">
 					<div>
@@ -776,16 +777,15 @@
 				</div>
 			</div>
 
-			<!-- Bonus scores list -->
 			{#if bonusLoading}
 				<LoadingSkeleton type="card" lines={3} />
 			{:else if bonusScores.length === 0}
-				<div class="text-center py-8 text-gray-400 text-sm">
+				<div class="text-center py-8 text-gray-400 text-sm bg-white rounded-lg border border-gray-200">
 					부여된 비정규 점수가 없습니다.
 				</div>
 			{:else}
 				<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-					<div class="max-h-[calc(100vh-400px)] overflow-y-auto">
+					<div class="max-h-[360px] overflow-y-auto">
 						<table class="w-full text-sm">
 							<thead class="bg-gray-50 sticky top-0">
 								<tr>
@@ -818,9 +818,10 @@
 					</div>
 				</div>
 			{/if}
+			</div>
 		</div>
 
-		<!-- Student List -->
+		{#if false}
 		<div class="mt-6">
 			<h2 class="text-lg font-semibold text-gray-700 mb-4">학생 목록</h2>
 			<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -900,6 +901,7 @@
 				</div>
 			</div>
 		</div>
+		{/if}
 	</div>
 </div>
 
