@@ -52,6 +52,40 @@
 		};
 	}
 
+	function matrixScoreTone(scoreText: string, questType: string, isSubmitted: boolean): string {
+		if (!isSubmitted || scoreText.trim() === '') return 'bg-white text-gray-500';
+		const score = Number(scoreText);
+		if (Number.isNaN(score)) return 'bg-white text-gray-500';
+
+		if (questType === 'sub') {
+			if (score <= 0) return 'bg-red-50 text-red-700';
+			if (score < 0.5) return 'bg-amber-50 text-amber-700';
+			if (score < 1) return 'bg-lime-50 text-lime-700';
+			return 'bg-emerald-100 text-emerald-800';
+		}
+
+		if (questType === 'main') {
+			if (score <= 0) return 'bg-red-50 text-red-700';
+			if (score < 2) return 'bg-orange-50 text-orange-700';
+			if (score < 3) return 'bg-amber-50 text-amber-700';
+			if (score < 4) return 'bg-lime-50 text-lime-700';
+			if (score < 5) return 'bg-emerald-50 text-emerald-700';
+			return 'bg-indigo-100 text-indigo-800';
+		}
+
+		if (questType === 'datathon') {
+			if (score <= 0) return 'bg-red-50 text-red-700';
+			if (score < 4) return 'bg-amber-50 text-amber-700';
+			if (score < 7) return 'bg-lime-50 text-lime-700';
+			return 'bg-emerald-100 text-emerald-800';
+		}
+
+		if (score <= 0) return 'bg-red-50 text-red-700';
+		if (score < 8) return 'bg-amber-50 text-amber-700';
+		if (score < 14) return 'bg-lime-50 text-lime-700';
+		return 'bg-emerald-100 text-emerald-800';
+	}
+
 	// Quest create modal
 	let showModal = $state(false);
 	let modalLoading = $state(false);
@@ -471,14 +505,14 @@
 				</div>
 			</div>
 
-			<div class="rounded-lg border border-gray-200 bg-white overflow-hidden mb-3">
+			<div class="border border-gray-300 bg-white overflow-hidden mb-3">
 				<div class="overflow-auto">
-					<table class="w-full min-w-[980px] text-sm">
-						<thead class="bg-gray-50 border-b border-gray-200">
+					<table class="w-full min-w-[980px] text-sm border-collapse">
+						<thead class="bg-gray-100">
 							<tr>
-								<th class="sticky left-0 z-10 bg-gray-50 px-2.5 py-1.5 text-left font-medium text-gray-600 min-w-[160px]">학생</th>
+								<th class="sticky left-0 z-10 bg-gray-100 px-2 py-1 text-left font-semibold text-gray-700 min-w-[160px] border-r border-b border-gray-300">학생</th>
 								{#each sortedQuests as quest}
-									<th class="px-1.5 py-1.5 text-center min-w-[120px]">
+									<th class="px-1 py-1 text-center min-w-[120px] border-r border-b border-gray-300">
 										<div class="flex flex-col items-center gap-1">
 											<button class="text-xs font-semibold text-gray-700 hover:text-blue-700 cursor-pointer" onclick={() => openEditModal(quest)}>
 												{quest.title || `${QUEST_TYPE_LABELS[quest.quest_type]} #${quest.quest_number}`}
@@ -486,31 +520,31 @@
 										</div>
 									</th>
 								{/each}
-									<th class="px-1.5 py-1.5 text-center min-w-[60px]">
+								<th class="px-1 py-1 text-center min-w-[60px] border-b border-gray-300">
 									<button onclick={openCreateModal} class="w-8 h-8 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-blue-600 hover:border-blue-400 cursor-pointer">+</button>
 								</th>
 							</tr>
 						</thead>
-						<tbody class="divide-y divide-gray-100">
+						<tbody>
 							{#if loading || matrixLoading}
 								<tr><td colspan={sortedQuests.length + 2} class="px-3 py-6 text-center text-gray-500">점수표를 불러오는 중입니다...</td></tr>
 							{:else if sortedQuests.length === 0}
 								<tr><td colspan={2} class="px-3 py-6 text-center text-gray-500">열 끝 + 버튼으로 퀘스트를 추가하세요.</td></tr>
 							{:else}
 								{#each activeStudents as student}
-										<tr class="hover:bg-gray-50/70">
-											<td class="sticky left-0 z-10 bg-white px-2.5 py-1.5 font-medium text-gray-800">
-												<button onclick={() => openStudentModal(student)} class="text-left hover:text-blue-700 cursor-pointer truncate max-w-[150px]">{student.name}</button>
-											</td>
-											{#each sortedQuests as quest}
-												<td class="px-1.5 py-1">
-													<div class="flex items-center justify-center gap-1">
+									<tr class="border-b border-gray-300 hover:bg-gray-50/70">
+										<td class="sticky left-0 z-10 bg-white px-2 py-1 font-medium text-gray-800 border-r border-gray-300">
+											<button onclick={() => openStudentModal(student)} class="text-left hover:text-blue-700 cursor-pointer truncate max-w-[150px] leading-tight">{student.name}</button>
+										</td>
+										{#each sortedQuests as quest}
+											<td class="p-0 border-r border-gray-200">
+												<div class="flex items-center justify-center gap-0.5">
 													<input
 														type="text"
 														inputmode="decimal"
 														value={getCell(student.legacy_user_id, quest.id).score}
 														oninput={(e) => handleMatrixInput(student.legacy_user_id, quest, (e.currentTarget as HTMLInputElement).value)}
-														class={`w-14 px-1.5 py-0.5 text-center border rounded text-xs focus:outline-none focus:ring-1 ${getCell(student.legacy_user_id, quest.id).error ? 'border-red-400 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'}`}
+														class={`w-full h-7 px-1 py-0 text-center border-0 rounded-none text-xs font-medium focus:outline-none focus:ring-0 ${matrixScoreTone(getCell(student.legacy_user_id, quest.id).score, quest.quest_type, getCell(student.legacy_user_id, quest.id).isSubmitted)} ${getCell(student.legacy_user_id, quest.id).error ? 'bg-red-100 text-red-800' : ''}`}
 														placeholder="-"
 													/>
 													{#if getCell(student.legacy_user_id, quest.id).saving}
@@ -521,7 +555,7 @@
 												</div>
 											</td>
 										{/each}
-											<td class="px-1 py-1"></td>
+											<td class="p-0"></td>
 									</tr>
 								{/each}
 							{/if}
