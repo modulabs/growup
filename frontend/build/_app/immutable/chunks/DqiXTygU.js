@@ -1,0 +1,1 @@
+const a={sub:{min:0,max:1,step:1},main:{min:0,max:5,step:1},datathon:{min:0,max:10,step:.5},ideathon:{min:0,max:20,step:.5}},t={sub:"서브퀘스트",main:"메인퀘스트",datathon:"데이터톤",ideathon:"아이디어톤"};export{t as Q,a as S};
