@@ -7,12 +7,50 @@
 	import { isLoggedIn } from '$lib/stores/auth';
 	import { addToast } from '$lib/stores/toast';
 	import { QUEST_TYPE_LABELS } from '$lib/types';
-	import type { Quest, Student, BonusScoreOut, StudentRubricResponse } from '$lib/types';
+	import type { Quest, Student, BonusScoreOut, StudentRubricResponse, ScoreOut } from '$lib/types';
 	import LoadingSkeleton from '$lib/components/LoadingSkeleton.svelte';
 
 	let loading = $state(true);
 	let quests = $state<Quest[]>([]);
 	let courseId = $derived(page.params.courseId);
+
+	type MatrixCell = {
+		score: string;
+		isSubmitted: boolean;
+		saving: boolean;
+		error: boolean;
+	};
+
+	let matrixLoading = $state(false);
+	let scoreMatrix = $state<Record<string, MatrixCell>>({});
+	const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+	let sortedQuests = $derived([...quests].sort((a, b) => a.quest_number - b.quest_number));
+
+	function cellKey(studentId: number, questId: string): string {
+		return `${studentId}:${questId}`;
+	}
+
+	function getCell(studentId: number, questId: string): MatrixCell {
+		return (
+			scoreMatrix[cellKey(studentId, questId)] || {
+				score: '',
+				isSubmitted: false,
+				saving: false,
+				error: false
+			}
+		);
+	}
+
+	function setCell(studentId: number, questId: string, patch: Partial<MatrixCell>) {
+		const key = cellKey(studentId, questId);
+		scoreMatrix = {
+			...scoreMatrix,
+			[key]: {
+				...getCell(studentId, questId),
+				...patch
+			}
+		};
+	}
 
 	// Quest create modal
 	let showModal = $state(false);
@@ -60,6 +98,7 @@
 			addToast(`${count}개 퀘스트가 삭제되었습니다.`, 'success');
 			selectedQuestIds = new Set();
 			await loadQuests();
+			await loadMatrix();
 		} catch {
 			addToast('퀘스트 삭제에 실패했습니다.', 'error');
 		} finally {
@@ -123,7 +162,10 @@
 		if (!$isLoggedIn) { goto(`${base}/login`); return; }
 		// Auto-sync students in background (silent), then load everything
 		api.post(`/api/v1/admin/sync/students/${courseId}`).catch(() => {});
-		await Promise.all([loadQuests(), loadStudents(), loadBonusScores()]);
+		await loadQuests();
+		await loadStudents();
+		await loadMatrix();
+		await loadBonusScores();
 	});
 
 	async function loadQuests() {
@@ -149,6 +191,76 @@
 			students = active;
 		} catch {
 			// Students load silently
+		}
+	}
+
+	async function loadMatrix() {
+		if (sortedQuests.length === 0 || activeStudents.length === 0) {
+			scoreMatrix = {};
+			return;
+		}
+		matrixLoading = true;
+		try {
+			const matrix: Record<string, MatrixCell> = {};
+			await Promise.all(
+				sortedQuests.map(async (quest) => {
+					const rows = await api.get<ScoreOut[]>(`/api/v1/facilitator/quests/${quest.id}/students`);
+					for (const row of rows) {
+						if (!activeStudents.find((s) => s.legacy_user_id === row.legacy_student_id)) continue;
+						matrix[cellKey(row.legacy_student_id, quest.id)] = {
+							score: row.score === null ? '' : String(row.score),
+							isSubmitted: row.is_submitted,
+							saving: false,
+							error: false
+						};
+					}
+				})
+			);
+			scoreMatrix = matrix;
+		} catch {
+			addToast('점수 매트릭스를 불러오지 못했습니다.', 'error');
+		} finally {
+			matrixLoading = false;
+		}
+	}
+
+	function handleMatrixInput(studentId: number, quest: Quest, raw: string) {
+		const value = raw.trim();
+		if (value !== '' && !/^\d+(\.\d+)?$/.test(value)) return;
+		setCell(studentId, quest.id, { score: value, isSubmitted: value !== '', error: false });
+		scheduleCellSave(studentId, quest.id, quest.quest_type);
+	}
+
+	function scheduleCellSave(studentId: number, questId: string, questType: string) {
+		const key = cellKey(studentId, questId);
+		const prev = saveTimers.get(key);
+		if (prev) clearTimeout(prev);
+		saveTimers.set(
+			key,
+			setTimeout(() => {
+				void persistCell(studentId, questId, questType);
+			}, 450)
+		);
+	}
+
+	async function persistCell(studentId: number, questId: string, _questType: string) {
+		const cell = getCell(studentId, questId);
+		setCell(studentId, questId, { saving: true, error: false });
+		try {
+			const score = cell.score === '' ? null : Number(cell.score);
+			await api.post(`/api/v1/facilitator/quests/${questId}/scores`, {
+				scores: [
+					{
+						legacy_student_id: studentId,
+						score,
+						is_submitted: score !== null
+					}
+				]
+			});
+			setCell(studentId, questId, { saving: false, error: false, isSubmitted: score !== null });
+		} catch {
+			setCell(studentId, questId, { saving: false, error: true });
+			addToast('점수 저장에 실패했습니다.', 'error');
 		}
 	}
 
@@ -259,6 +371,7 @@
 				res.errors.length > 0 ? 'error' : 'success'
 			);
 			await loadQuests();
+			await loadMatrix();
 		} catch {
 			addToast('시트 가져오기에 실패했습니다.', 'error');
 		} finally {
@@ -304,6 +417,7 @@
 
 			showModal = false;
 			await loadQuests();
+			await loadMatrix();
 		} catch (err) {
 			addToast(editingQuest ? '퀘스트 수정에 실패했습니다.' : '퀘스트 생성에 실패했습니다.', 'error');
 		} finally {
@@ -317,6 +431,7 @@
 			await api.del(`/api/v1/facilitator/quests/${quest.id}`);
 			addToast('퀘스트가 삭제되었습니다.', 'success');
 			await loadQuests();
+			await loadMatrix();
 		} catch (err) {
 			addToast('퀘스트 삭제에 실패했습니다.', 'error');
 		}
@@ -339,7 +454,7 @@
 		<!-- LEFT: Quest list -->
 		<div class="flex-1 min-w-0">
 			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-				<h2 class="text-lg font-semibold text-gray-700">퀘스트 목록</h2>
+				<h2 class="text-lg font-semibold text-gray-700">학생 x 퀘스트 점수표</h2>
 					<div class="flex flex-col sm:flex-row gap-2">
 					<button
 						onclick={openImportModal}
@@ -355,6 +470,65 @@
 					</button>
 				</div>
 			</div>
+
+			<div class="rounded-lg border border-gray-200 bg-white overflow-hidden mb-3">
+				<div class="overflow-auto">
+					<table class="w-full min-w-[980px] text-sm">
+						<thead class="bg-gray-50 border-b border-gray-200">
+							<tr>
+								<th class="sticky left-0 z-10 bg-gray-50 px-3 py-2 text-left font-medium text-gray-600 min-w-[170px]">학생</th>
+								{#each sortedQuests as quest}
+									<th class="px-2 py-2 text-center min-w-[130px]">
+										<div class="flex flex-col items-center gap-1">
+											<button class="text-xs font-semibold text-gray-700 hover:text-blue-700 cursor-pointer" onclick={() => openEditModal(quest)}>
+												{quest.title || `${QUEST_TYPE_LABELS[quest.quest_type]} #${quest.quest_number}`}
+											</button>
+										</div>
+									</th>
+								{/each}
+								<th class="px-2 py-2 text-center min-w-[70px]">
+									<button onclick={openCreateModal} class="w-8 h-8 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-blue-600 hover:border-blue-400 cursor-pointer">+</button>
+								</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-gray-100">
+							{#if loading || matrixLoading}
+								<tr><td colspan={sortedQuests.length + 2} class="px-3 py-6 text-center text-gray-500">점수표를 불러오는 중입니다...</td></tr>
+							{:else if sortedQuests.length === 0}
+								<tr><td colspan={2} class="px-3 py-6 text-center text-gray-500">열 끝 + 버튼으로 퀘스트를 추가하세요.</td></tr>
+							{:else}
+								{#each activeStudents as student}
+									<tr class="hover:bg-gray-50/70">
+										<td class="sticky left-0 z-10 bg-white px-3 py-2 font-medium text-gray-800">{student.name}</td>
+										{#each sortedQuests as quest}
+											<td class="px-2 py-2">
+												<div class="flex items-center justify-center gap-1">
+													<input
+														type="text"
+														inputmode="decimal"
+														value={getCell(student.legacy_user_id, quest.id).score}
+														oninput={(e) => handleMatrixInput(student.legacy_user_id, quest, (e.currentTarget as HTMLInputElement).value)}
+														class={`w-16 px-2 py-1 text-center border rounded text-sm focus:outline-none focus:ring-2 ${getCell(student.legacy_user_id, quest.id).error ? 'border-red-400 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'}`}
+														placeholder="-"
+													/>
+													{#if getCell(student.legacy_user_id, quest.id).saving}
+														<span class="text-[10px] text-blue-500">저장</span>
+													{:else if getCell(student.legacy_user_id, quest.id).error}
+														<span class="text-[10px] text-red-500">실패</span>
+													{/if}
+												</div>
+											</td>
+										{/each}
+										<td class="px-2 py-2"></td>
+									</tr>
+								{/each}
+							{/if}
+						</tbody>
+					</table>
+				</div>
+			</div>
+
+			{#if false}
 
 			{#if loading}
 				<LoadingSkeleton type="card" lines={4} />
@@ -432,7 +606,7 @@
 		<div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
 			<div class="p-5 border-b border-gray-200 flex justify-between items-center">
 				<h2 class="text-lg font-bold text-gray-800">
-					{selectedStudent.name} 학생 상세 정보
+					{selectedStudent?.name} 학생 상세 정보
 				</h2>
 				<button
 					onclick={() => (showStudentModal = false)}
@@ -445,14 +619,14 @@
 			<div class="p-6 overflow-y-auto">
 				{#if studentRubricLoading}
 					<LoadingSkeleton type="card" lines={3} />
-				{:else if studentRubricData && studentRubricData.tasks.length > 0}
+				{:else if (studentRubricData?.tasks?.length ?? 0) > 0}
 					<h3 class="font-medium text-purple-800 mb-4 flex items-center gap-2">
 						<span class="w-2 h-6 bg-purple-600 rounded-full"></span>
 						LMS 루브릭 평가
 					</h3>
 					
 					<div class="space-y-6">
-						{#each studentRubricData.tasks as task}
+						{#each studentRubricData?.tasks ?? [] as task}
 							<div class="bg-gray-50 rounded-lg border border-gray-200 p-4">
 								<div class="flex justify-between items-start mb-3">
 									<h4 class="font-medium text-gray-900">{task.task_title}</h4>
@@ -527,6 +701,7 @@
 						</div>
 					{/each}
 				</div>
+			{/if}
 			{/if}
 		</div>
 
