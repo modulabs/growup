@@ -53,9 +53,9 @@
 	}
 
 	function matrixScoreTone(scoreText: string, questType: string, isSubmitted: boolean): string {
-		if (!isSubmitted || scoreText.trim() === '') return 'bg-white text-gray-500';
+		if (!isSubmitted || scoreText.trim() === '') return 'bg-slate-50 text-slate-500';
 		const score = Number(scoreText);
-		if (Number.isNaN(score)) return 'bg-white text-gray-500';
+		if (Number.isNaN(score)) return 'bg-slate-50 text-slate-500';
 
 		if (questType === 'sub') {
 			if (score <= 0) return 'bg-red-50 text-red-700';
@@ -470,6 +470,7 @@
 			addToast('퀘스트 삭제에 실패했습니다.', 'error');
 		}
 	}
+
 </script>
 
 <div class="max-w-[1600px] mx-auto px-3 py-6 sm:px-6">
@@ -537,20 +538,21 @@
 											<button onclick={() => openStudentModal(student)} class="text-left hover:text-blue-700 cursor-pointer truncate max-w-[150px] leading-tight">{student.name}</button>
 										</td>
 										{#each sortedQuests as quest}
-											<td class="p-0 border-r border-gray-200">
-												<div class="flex items-center justify-center gap-0.5">
+											<td class="p-0 border-r border-gray-200 group">
+												<div class="relative flex items-center justify-center gap-0.5 h-7">
 													<input
 														type="text"
 														inputmode="decimal"
 														value={getCell(student.legacy_user_id, quest.id).score}
 														oninput={(e) => handleMatrixInput(student.legacy_user_id, quest, (e.currentTarget as HTMLInputElement).value)}
-														class={`w-full h-7 px-1 py-0 text-center border-0 rounded-none text-xs font-medium focus:outline-none focus:ring-0 ${matrixScoreTone(getCell(student.legacy_user_id, quest.id).score, quest.quest_type, getCell(student.legacy_user_id, quest.id).isSubmitted)} ${getCell(student.legacy_user_id, quest.id).error ? 'bg-red-100 text-red-800' : ''}`}
-														placeholder="-"
+														class={`w-full h-7 px-1 py-0 text-center border-0 rounded-none text-xs font-semibold cursor-text transition-colors duration-100 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-300 focus:bg-white ${matrixScoreTone(getCell(student.legacy_user_id, quest.id).score, quest.quest_type, getCell(student.legacy_user_id, quest.id).isSubmitted)} ${getCell(student.legacy_user_id, quest.id).error ? 'bg-red-100 text-red-800' : ''}`}
+														placeholder="입력"
 													/>
+													<span class="absolute right-1 top-1 h-1 w-1 rounded-full bg-gray-300 group-hover:bg-blue-400"></span>
 													{#if getCell(student.legacy_user_id, quest.id).saving}
-														<span class="text-[10px] text-blue-500">저장</span>
+														<span class="absolute right-1 bottom-0.5 text-[9px] text-blue-500">저장</span>
 													{:else if getCell(student.legacy_user_id, quest.id).error}
-														<span class="text-[10px] text-red-500">실패</span>
+														<span class="absolute right-1 bottom-0.5 text-[9px] text-red-500">실패</span>
 													{/if}
 												</div>
 											</td>
