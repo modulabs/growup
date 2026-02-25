@@ -1,0 +1,9 @@
+{
+	"/": [],
+	"/facilitator": [],
+	"/facilitator/courses/[courseId]": [],
+	"/facilitator/quests/[questId]": [],
+	"/login": [],
+	"/student": [],
+	"/student/[courseId]": []
+}
