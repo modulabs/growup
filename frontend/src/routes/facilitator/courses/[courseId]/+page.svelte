@@ -21,8 +21,18 @@
 		error: boolean;
 	};
 
+	type NodeMatrixResult = {
+		studentId: number;
+		tasks: StudentRubricResponse['tasks'];
+		error: boolean;
+	};
+
 	let matrixLoading = $state(false);
 	let scoreMatrix = $state<Record<string, MatrixCell>>({});
+	let nodeMatrixLoading = $state(false);
+	let nodeMatrixError = $state(false);
+	let nodeHeaders = $state<string[]>([]);
+	let nodeScoreMatrix = $state<Record<string, number | null>>({});
 	let questMenuOpenId = $state<string | null>(null);
 	const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	let sortedQuests = $derived([...quests].sort((a, b) => a.quest_number - b.quest_number));
@@ -102,6 +112,41 @@
 	function formatStudentRowQuestTotal(studentId: number): string {
 		const total = studentRowQuestTotal(studentId);
 		return Number.isInteger(total) ? String(total) : total.toFixed(1);
+	}
+
+	function nodeCellKey(studentId: number, nodeTitle: string): string {
+		return `${studentId}:${nodeTitle}`;
+	}
+
+	function getNodeCellScore(studentId: number, nodeTitle: string): number | null {
+		return nodeScoreMatrix[nodeCellKey(studentId, nodeTitle)] ?? null;
+	}
+
+	function studentNodeRowTotal(studentId: number): number {
+		let total = 0;
+		for (const nodeTitle of nodeHeaders) {
+			const score = getNodeCellScore(studentId, nodeTitle);
+			if (score === null) continue;
+			total += score;
+		}
+		return total;
+	}
+
+	function formatStudentNodeRowTotal(studentId: number): string {
+		const total = studentNodeRowTotal(studentId);
+		return Number.isInteger(total) ? String(total) : total.toFixed(1);
+	}
+
+	function nodeStarCount(score: number): number {
+		return Math.max(0, Math.min(3, Math.round(score)));
+	}
+
+	function normalizeNodeTitle(taskTitle: string): string {
+		return taskTitle
+			.replace(/^[A-Z0-9]+(?:-[A-Z0-9]+)*\.\s*/i, '')
+			.replace(/^프로젝트\s*[:：]?\s*/i, '')
+			.replace(/^\d+\.\s*/, '')
+			.trim();
 	}
 
 	// Quest create modal
@@ -241,8 +286,7 @@
 		// Keep facilitator-managed student filters stable across reloads/deploys.
 		await loadQuests();
 		await loadStudents();
-		await loadMatrix();
-		await loadBonusScores();
+		await Promise.all([loadMatrix(), loadBonusScores(), loadNodeMatrix()]);
 	});
 
 	async function loadQuests() {
@@ -300,6 +344,65 @@
 		}
 	}
 
+	async function loadNodeMatrix() {
+		if (allMatrixStudents.length === 0) {
+			nodeHeaders = [];
+			nodeScoreMatrix = {};
+			return;
+		}
+
+		nodeMatrixLoading = true;
+		nodeMatrixError = false;
+
+		try {
+			const responses = await Promise.all(
+				allMatrixStudents.map(async (student): Promise<NodeMatrixResult> => {
+					try {
+						const rubric = await api.get<StudentRubricResponse>(
+							`/api/v1/facilitator/courses/${courseId}/students/${student.legacy_user_id}/rubrics`
+						);
+						return { studentId: student.legacy_user_id, tasks: rubric.tasks || [], error: false };
+					} catch {
+						return { studentId: student.legacy_user_id, tasks: [], error: true };
+					}
+				})
+			);
+
+			const headersSet = new Set<string>();
+			const matrix: Record<string, number | null> = {};
+			let hasAnyError = false;
+
+			for (const response of responses) {
+				if (response.error) hasAnyError = true;
+				for (const task of response.tasks) {
+					const title = normalizeNodeTitle(task.task_title || '');
+					if (!title) continue;
+					headersSet.add(title);
+					matrix[nodeCellKey(response.studentId, title)] = nodeStarCount(task.total_human || 0);
+				}
+			}
+
+			const headers = [...headersSet];
+			for (const student of allMatrixStudents) {
+				for (const title of headers) {
+					const key = nodeCellKey(student.legacy_user_id, title);
+					if (!(key in matrix)) matrix[key] = null;
+				}
+			}
+
+			nodeHeaders = headers;
+			nodeScoreMatrix = matrix;
+			nodeMatrixError = hasAnyError;
+		} catch {
+			nodeHeaders = [];
+			nodeScoreMatrix = {};
+			nodeMatrixError = true;
+			addToast('학생 x 노드 점수표를 불러오지 못했습니다.', 'error');
+		} finally {
+			nodeMatrixLoading = false;
+		}
+	}
+
 	function handleMatrixInput(studentId: number, quest: Quest, raw: string) {
 		const value = raw.trim();
 		if (value !== '' && !/^\d+(\.\d+)?$/.test(value)) return;
@@ -348,6 +451,7 @@
 			);
 			addToast(res.is_active ? '학생이 활성화되었습니다.' : '학생이 비활성화되었습니다.', 'success');
 			await loadStudents();
+			await loadNodeMatrix();
 		} catch {
 			addToast('학생 상태 변경에 실패했습니다.', 'error');
 		} finally {
@@ -676,6 +780,65 @@
 						</tbody>
 					</table>
 				</div>
+			</div>
+
+			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4 mt-8">
+				<h2 class="text-lg font-semibold text-gray-700">학생 x 노드 점수표</h2>
+				<span class="inline-flex items-center rounded-md border border-gray-300 bg-gray-50 px-2 py-1 text-xs font-semibold text-gray-600">
+					읽기 전용
+				</span>
+			</div>
+
+			<div class="border border-gray-300 bg-white overflow-hidden mb-3">
+				<div class="overflow-auto">
+					<table class="w-full min-w-[720px] text-sm border-collapse">
+						<thead class="bg-gray-100">
+							<tr>
+								<th class="sticky left-0 z-20 bg-gray-100 px-1 py-1 text-center font-semibold text-gray-700 min-w-[112px] border-r border-b border-gray-300">학생</th>
+								{#each nodeHeaders as nodeTitle}
+									<th class="px-2 py-1 text-center min-w-[110px] border-r border-b border-gray-300 text-xs font-semibold text-gray-700">{nodeTitle}</th>
+								{/each}
+								<th class="sticky right-0 z-20 bg-gray-100 px-2 py-1 text-center font-semibold text-gray-700 min-w-[92px] border-l border-b border-gray-300">총합</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#if nodeMatrixLoading}
+								<tr><td colspan={nodeHeaders.length + 2} class="px-3 py-6 text-center text-gray-500">노드 점수표를 불러오는 중입니다...</td></tr>
+							{:else if matrixStudents.length === 0}
+								<tr><td colspan={nodeHeaders.length + 2} class="px-3 py-6 text-center text-gray-500">표시할 학생이 없습니다.</td></tr>
+							{:else if nodeHeaders.length === 0}
+								<tr><td colspan={2} class="px-3 py-6 text-center text-gray-500">표시할 노드 점수가 없습니다.</td></tr>
+							{:else}
+								{#each matrixStudents as student}
+									<tr class="border-b border-gray-300 hover:bg-gray-50/70">
+										<td class="sticky left-0 z-10 bg-white px-1 py-1 font-medium text-gray-800 border-r border-gray-300 text-center">
+											<button onclick={() => goto(`${base}/student/${courseId}?student_id=${student.legacy_user_id}&student_name=${encodeURIComponent(student.name)}`)} class="text-center hover:text-blue-700 cursor-pointer truncate max-w-[95px] leading-tight">{student.name}</button>
+										</td>
+										{#each nodeHeaders as nodeTitle}
+											<td class="px-1 py-1 text-center border-r border-gray-200">
+												{#if getNodeCellScore(student.legacy_user_id, nodeTitle) === null}
+													<span class="text-xs text-gray-300">-</span>
+												{:else}
+													<div class="flex items-center justify-center gap-0.5">
+														{#each [0, 1, 2] as star}
+															<span class={`text-[11px] leading-none ${star < (getNodeCellScore(student.legacy_user_id, nodeTitle) ?? 0) ? 'text-amber-400' : 'text-gray-200'}`}>★</span>
+														{/each}
+													</div>
+												{/if}
+											</td>
+										{/each}
+										<td class="sticky right-0 z-10 bg-white px-2 py-1 text-center border-l border-gray-300 font-semibold text-violet-700">{formatStudentNodeRowTotal(student.legacy_user_id)}</td>
+									</tr>
+								{/each}
+							{/if}
+						</tbody>
+					</table>
+				</div>
+				{#if nodeMatrixError}
+					<div class="px-3 py-2 border-t border-gray-200 text-xs text-amber-700 bg-amber-50">
+						일부 학생의 노드 점수 데이터를 불러오지 못했습니다.
+					</div>
+				{/if}
 			</div>
 
 			{#if false}
