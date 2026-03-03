@@ -195,10 +195,12 @@ async def my_rubrics(
     tasks: list[TaskRubricOut] = []
     for title, items in tasks_map.items():
         raw_node_schedule_id = items[0].get("node_schedule_id") if items else None
+        raw_node_schedule_at = items[0].get("node_schedule_at") if items else None
         try:
             node_schedule_id = int(raw_node_schedule_id) if raw_node_schedule_id is not None else None
         except (TypeError, ValueError):
             node_schedule_id = None
+        node_schedule_at = str(raw_node_schedule_at) if raw_node_schedule_at is not None else None
 
         rubric_items = [
             RubricItemOut(
@@ -217,6 +219,7 @@ async def my_rubrics(
             TaskRubricOut(
                 task_title=title,
                 node_schedule_id=node_schedule_id,
+                node_schedule_at=node_schedule_at,
                 rubric_items=rubric_items,
                 overall_feedback=overall_map.get(title),
                 total_human=total_human,

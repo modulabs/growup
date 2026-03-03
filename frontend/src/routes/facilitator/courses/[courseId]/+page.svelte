@@ -32,6 +32,7 @@
 	let nodeMatrixLoading = $state(false);
 	let nodeMatrixError = $state(false);
 	let nodeHeaders = $state<string[]>([]);
+	let nodeHeaderScheduleText = $state<Record<string, string>>({});
 	let nodeScoreMatrix = $state<Record<string, number | null>>({});
 	let questMenuOpenId = $state<string | null>(null);
 	const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -139,6 +140,22 @@
 
 	function nodeStarCount(score: number): number {
 		return Math.max(0, Math.min(3, Math.round(score)));
+	}
+
+	function parseNodeScheduleTime(value: string | null): number | null {
+		if (!value) return null;
+		const timestamp = Date.parse(value);
+		return Number.isNaN(timestamp) ? null : timestamp;
+	}
+
+	function formatNodeScheduleText(value: string | null): string {
+		if (!value) return '-';
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return '-';
+		const y = date.getFullYear();
+		const m = String(date.getMonth() + 1).padStart(2, '0');
+		const d = String(date.getDate()).padStart(2, '0');
+		return `${y}.${m}.${d}`;
 	}
 
 	function normalizeNodeTitle(taskTitle: string): string {
@@ -397,6 +414,7 @@
 	async function loadNodeMatrix() {
 		if (allMatrixStudents.length === 0) {
 			nodeHeaders = [];
+			nodeHeaderScheduleText = {};
 			nodeScoreMatrix = {};
 			return;
 		}
@@ -419,7 +437,9 @@
 			);
 
 			const headersSet = new Set<string>();
+			const headerOrderByTime: Record<string, number> = {};
 			const headerOrderByScheduleId: Record<string, number> = {};
+			const headerScheduleTextMap: Record<string, string> = {};
 			const matrix: Record<string, number | null> = {};
 			let hasAnyError = false;
 
@@ -429,6 +449,16 @@
 					const title = normalizeNodeTitle(task.task_title || '');
 					if (!title) continue;
 					headersSet.add(title);
+					const scheduleTime = parseNodeScheduleTime(task.node_schedule_at);
+					if (scheduleTime !== null) {
+						const currentTime = headerOrderByTime[title];
+						if (currentTime === undefined || scheduleTime < currentTime) {
+							headerOrderByTime[title] = scheduleTime;
+							headerScheduleTextMap[title] = formatNodeScheduleText(task.node_schedule_at);
+						}
+					} else if (!(title in headerScheduleTextMap)) {
+						headerScheduleTextMap[title] = '-';
+					}
 					const scheduleId = task.node_schedule_id;
 					if (scheduleId !== null && Number.isFinite(scheduleId)) {
 						const current = headerOrderByScheduleId[title];
@@ -441,6 +471,9 @@
 			}
 
 			const headers = [...headersSet].sort((a, b) => {
+				const aTime = headerOrderByTime[a] ?? Number.MAX_SAFE_INTEGER;
+				const bTime = headerOrderByTime[b] ?? Number.MAX_SAFE_INTEGER;
+				if (aTime !== bTime) return aTime - bTime;
 				const aScheduleId = headerOrderByScheduleId[a] ?? Number.MAX_SAFE_INTEGER;
 				const bScheduleId = headerOrderByScheduleId[b] ?? Number.MAX_SAFE_INTEGER;
 				if (aScheduleId !== bScheduleId) return aScheduleId - bScheduleId;
@@ -454,10 +487,12 @@
 			}
 
 			nodeHeaders = headers;
+			nodeHeaderScheduleText = headerScheduleTextMap;
 			nodeScoreMatrix = matrix;
 			nodeMatrixError = hasAnyError;
 		} catch {
 			nodeHeaders = [];
+			nodeHeaderScheduleText = {};
 			nodeScoreMatrix = {};
 			nodeMatrixError = true;
 			addToast('학생 x 노드 점수표를 불러오지 못했습니다.', 'error');
@@ -894,7 +929,12 @@
 							<tr>
 								<th class="sticky left-0 z-20 bg-gray-100 px-1 py-1 text-center font-semibold text-gray-700 min-w-[112px] border-r border-b border-gray-300">학생</th>
 								{#each nodeHeaders as nodeTitle}
-									<th class="px-2 py-1 text-center min-w-[110px] border-r border-b border-gray-300 text-xs font-semibold text-gray-700">{nodeTitle}</th>
+									<th class="px-2 py-1 text-center min-w-[120px] border-r border-b border-gray-300 text-xs text-gray-700">
+										<div class="flex flex-col items-center leading-tight gap-0.5">
+											<span class="font-semibold">{nodeTitle}</span>
+											<span class="text-[10px] text-gray-500">{nodeHeaderScheduleText[nodeTitle] || '-'}</span>
+										</div>
+									</th>
 								{/each}
 								<th class="sticky right-0 z-20 bg-gray-100 px-2 py-1 text-center font-semibold text-gray-700 min-w-[92px] border-l border-b border-gray-300">총합</th>
 							</tr>

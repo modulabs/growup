@@ -11,6 +11,19 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 TIMEOUT = 15.0
+_NODESCHEDULE_TIME_COLUMN_CANDIDATES = (
+    "scheduled_at",
+    "schedule_at",
+    "start_at",
+    "started_at",
+    "start_date",
+    "scheduled_date",
+    "lesson_date",
+    "date",
+    "created_at",
+)
+_nodeschedule_time_column: Optional[str] = None
+_nodeschedule_time_checked = False
 
 
 def _sql_escape(value: str) -> str:
@@ -44,6 +57,31 @@ async def _query_legacy(sql: str) -> List[Dict[str, Any]]:
         if isinstance(data, list):
             return data
         return []
+
+
+async def _resolve_nodeschedule_time_column() -> Optional[str]:
+    global _nodeschedule_time_checked, _nodeschedule_time_column
+
+    if _nodeschedule_time_checked:
+        return _nodeschedule_time_column
+
+    rows = await _query_legacy(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'core_nodeschedule'
+        """
+    )
+    available = {str(row.get("column_name", "")).lower() for row in rows}
+
+    for candidate in _NODESCHEDULE_TIME_COLUMN_CANDIDATES:
+        if candidate in available:
+            _nodeschedule_time_column = candidate
+            break
+
+    _nodeschedule_time_checked = True
+    return _nodeschedule_time_column
 
 
 async def verify_user(email: str, phone: str) -> Optional[Dict[str, Any]]:
@@ -119,10 +157,18 @@ async def get_rubric_scores_for_student(
     course_ids = [str(c["course_id"]) for c in courses]
     course_ids_str = ", ".join(course_ids)
 
-    # 2. Query evaluations
-    # Optimization: Filter by cnvr.course_id (via node_version) instead of ue.course_id
-    # because core_userenrolments query is too slow/times out on n8n.
-    # Start from core_evaluation (Human) because GPT eval might be missing for older courses.
+    node_schedule_time_column = await _resolve_nodeschedule_time_column()
+    node_schedule_at_select = (
+        f",\n        ns.{node_schedule_time_column} AS node_schedule_at"
+        if node_schedule_time_column
+        else ""
+    )
+    order_by_clause = (
+        f"ORDER BY ns.{node_schedule_time_column} NULLS LAST, ns.id, r.\"order\", n.title"
+        if node_schedule_time_column
+        else 'ORDER BY ns.id, r."order", n.title'
+    )
+
     sql = f"""
     SELECT
         n.title AS task_title,
@@ -132,7 +178,7 @@ async def get_rubric_scores_for_student(
         e.score AS human_score,
         rge.gpt_score,
         rge.gpt_comment AS rubric_feedback,
-        ge.overall_comment AS overall_feedback
+        ge.overall_comment AS overall_feedback{node_schedule_at_select}
     FROM core_evaluation e
     JOIN core_nodeprogrs np ON e.node_progrs_id = np.id
     JOIN core_nodeschedule ns ON np.node_schedule_id = ns.id
@@ -145,7 +191,7 @@ async def get_rubric_scores_for_student(
     LEFT JOIN core_rubricgptevaluation rge ON rge.evaluation_id = e.id
     WHERE ue.user_id = {user_id}
       AND cnvr.course_id IN ({course_ids_str})
-    ORDER BY ns.id, r."order", n.title
+    {order_by_clause}
     """
     return await _query_legacy(sql)
 
@@ -166,7 +212,18 @@ async def get_rubric_scores_all_students(
     course_ids = [str(c["course_id"]) for c in courses]
     course_ids_str = ", ".join(course_ids)
 
-    # 2. Query evaluations
+    node_schedule_time_column = await _resolve_nodeschedule_time_column()
+    node_schedule_at_select = (
+        f",\n        ns.{node_schedule_time_column} AS node_schedule_at"
+        if node_schedule_time_column
+        else ""
+    )
+    order_by_clause = (
+        f"ORDER BY cu.first_name, ns.{node_schedule_time_column} NULLS LAST, ns.id, r.\"order\", n.title"
+        if node_schedule_time_column
+        else 'ORDER BY cu.first_name, ns.id, r."order", n.title'
+    )
+
     sql = f"""
     SELECT
         ue.user_id AS student_id,
@@ -178,7 +235,7 @@ async def get_rubric_scores_all_students(
         e.score AS human_score,
         rge.gpt_score,
         rge.gpt_comment AS rubric_feedback,
-        ge.overall_comment AS overall_feedback
+        ge.overall_comment AS overall_feedback{node_schedule_at_select}
     FROM core_evaluation e
     JOIN core_nodeprogrs np ON e.node_progrs_id = np.id
     JOIN core_nodeschedule ns ON np.node_schedule_id = ns.id
@@ -191,7 +248,7 @@ async def get_rubric_scores_all_students(
     LEFT JOIN core_rubric r ON e.rubric_id = r.id
     LEFT JOIN core_rubricgptevaluation rge ON rge.evaluation_id = e.id
     WHERE cnvr.course_id IN ({course_ids_str})
-    ORDER BY cu.first_name, ns.id, r."order", n.title
+    {order_by_clause}
     """
     return await _query_legacy(sql)
 
