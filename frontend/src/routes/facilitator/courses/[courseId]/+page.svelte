@@ -23,6 +23,7 @@
 
 	let matrixLoading = $state(false);
 	let scoreMatrix = $state<Record<string, MatrixCell>>({});
+	let questMenuOpenId = $state<string | null>(null);
 	const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	let sortedQuests = $derived([...quests].sort((a, b) => a.quest_number - b.quest_number));
 
@@ -553,19 +554,49 @@
 							<th class="sticky left-0 z-20 bg-gray-100 px-1 py-1 text-center font-semibold text-gray-700 min-w-[112px] border-r border-b border-gray-300">학생</th>
 								{#each sortedQuests as quest}
 									<th class="px-1 py-1 text-center min-w-[120px] border-r border-b border-gray-300">
-										<div class="flex flex-col items-center gap-1">
+										<div class="flex flex-col items-center gap-1 relative">
 											<button class="text-xs font-semibold text-gray-700 hover:text-blue-700 cursor-pointer" onclick={() => openEditModal(quest)}>
 												{quest.title || `${QUEST_TYPE_LABELS[quest.quest_type]} #${quest.quest_number}`}
 											</button>
 											<button
 												type="button"
-												onclick={() => deleteQuest(quest)}
-												class="text-[10px] px-1.5 py-0.5 rounded border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 cursor-pointer"
-												title="퀘스트 열 삭제"
-												aria-label="퀘스트 열 삭제"
+												onclick={() => (questMenuOpenId = questMenuOpenId === quest.id ? null : quest.id)}
+												class={`h-6 w-6 rounded-md border bg-white cursor-pointer flex items-center justify-center transition-colors ${questMenuOpenId === quest.id ? 'border-blue-400 text-blue-600 shadow-sm' : 'border-gray-300 text-gray-500 hover:text-gray-700 hover:border-gray-400'}`}
+												title="퀘스트 메뉴"
+												aria-label="퀘스트 메뉴"
 											>
-												삭제
+												<svg viewBox="0 0 20 20" class="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+													<circle cx="4" cy="10" r="1.5"></circle>
+													<circle cx="10" cy="10" r="1.5"></circle>
+													<circle cx="16" cy="10" r="1.5"></circle>
+												</svg>
 											</button>
+											{#if questMenuOpenId === quest.id}
+												<div class="absolute top-9 right-0 z-30 w-28 rounded-lg border border-gray-200 bg-white shadow-xl overflow-hidden">
+													<button
+														type="button"
+														onclick={() => {
+															questMenuOpenId = null;
+															openEditModal(quest);
+														}}
+														class="flex items-center gap-1.5 w-full text-left px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+													>
+														<span class="text-gray-400">✎</span>
+														수정
+													</button>
+													<button
+														type="button"
+														onclick={() => {
+															questMenuOpenId = null;
+															deleteQuest(quest);
+														}}
+														class="flex items-center gap-1.5 w-full text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 cursor-pointer border-t border-gray-100"
+													>
+														<span class="text-red-400">✕</span>
+														삭제
+													</button>
+												</div>
+											{/if}
 										</div>
 									</th>
 								{/each}
