@@ -175,6 +175,7 @@
 	let activeStudents = $state<Student[]>([]);
 	let inactiveStudents = $state<Student[]>([]);
 	let studentTab = $state<'active' | 'inactive'>('active');
+	let matrixStudentScope = $state<'filtered' | 'all'>('filtered');
 	let togglingStudentId = $state<number | null>(null);
 	let bonusScores = $state<BonusScoreOut[]>([]);
 	let bonusLoading = $state(false);
@@ -186,6 +187,10 @@
 	let bonusSubmitting = $state(false);
 
 	const BONUS_CATEGORIES = ['퍼실재량점수', '아낌없이 주는 그루', '디스코드 소통왕', '쉐밸그투', '직접 입력'];
+	let allMatrixStudents = $derived([...activeStudents, ...inactiveStudents]);
+	let matrixStudents = $derived(
+		matrixStudentScope === 'all' ? allMatrixStudents : activeStudents
+	);
 
 	// Rubric View Modal
 	let showStudentModal = $state(false);
@@ -246,7 +251,7 @@
 	}
 
 	async function loadMatrix() {
-		if (sortedQuests.length === 0 || activeStudents.length === 0) {
+		if (sortedQuests.length === 0 || allMatrixStudents.length === 0) {
 			scoreMatrix = {};
 			return;
 		}
@@ -257,7 +262,6 @@
 				sortedQuests.map(async (quest) => {
 					const rows = await api.get<ScoreOut[]>(`/api/v1/facilitator/quests/${quest.id}/students`);
 					for (const row of rows) {
-						if (!activeStudents.find((s) => s.legacy_user_id === row.legacy_student_id)) continue;
 						matrix[cellKey(row.legacy_student_id, quest.id)] = {
 							score: row.score === null ? '' : String(row.score),
 							isSubmitted: row.is_submitted,
@@ -507,7 +511,21 @@
 		<div class="flex-1 min-w-0">
 			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
 				<h2 class="text-lg font-semibold text-gray-700">학생 x 퀘스트 점수표</h2>
-					<div class="flex flex-col sm:flex-row gap-2">
+				<div class="flex flex-wrap items-center gap-2">
+					<div class="inline-flex rounded-lg border border-gray-300 overflow-hidden text-xs">
+						<button
+							onclick={() => (matrixStudentScope = 'filtered')}
+							class={`px-2.5 py-1.5 font-medium transition-colors cursor-pointer ${matrixStudentScope === 'filtered' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+						>
+							필터 인원 {activeStudents.length}
+						</button>
+						<button
+							onclick={() => (matrixStudentScope = 'all')}
+							class={`px-2.5 py-1.5 font-medium transition-colors cursor-pointer ${matrixStudentScope === 'all' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+						>
+							전체 인원 {allMatrixStudents.length}
+						</button>
+					</div>
 					<button
 						onclick={openImportModal}
 						class="px-3 py-2 text-sm border border-green-600 text-green-700 rounded-lg hover:bg-green-50 transition-colors cursor-pointer"
@@ -549,8 +567,10 @@
 								<tr><td colspan={sortedQuests.length + 3} class="px-3 py-6 text-center text-gray-500">점수표를 불러오는 중입니다...</td></tr>
 							{:else if sortedQuests.length === 0}
 								<tr><td colspan={3} class="px-3 py-6 text-center text-gray-500">열 끝 + 버튼으로 퀘스트를 추가하세요.</td></tr>
+							{:else if matrixStudents.length === 0}
+								<tr><td colspan={sortedQuests.length + 3} class="px-3 py-6 text-center text-gray-500">표시할 학생이 없습니다.</td></tr>
 							{:else}
-								{#each activeStudents as student}
+								{#each matrixStudents as student}
 									<tr class="border-b border-gray-300 hover:bg-gray-50/70">
 										<td class="sticky left-0 z-10 bg-white px-1 py-1 font-medium text-gray-800 border-r border-gray-300 text-center">
 											<button onclick={() => goto(`${base}/student/${courseId}?student_id=${student.legacy_user_id}`)} class="w-full text-center hover:text-blue-700 cursor-pointer truncate max-w-[108px] mx-auto leading-tight">{student.name}</button>
