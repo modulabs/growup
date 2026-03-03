@@ -125,6 +125,7 @@ export interface RubricItemOut {
 
 export interface TaskRubricOut {
 	task_title: string;
+	node_schedule_id: number | null;
 	rubric_items: RubricItemOut[];
 	overall_feedback: string | null;
 	total_human: number;

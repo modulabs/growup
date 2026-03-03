@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, require_facilitator
@@ -576,7 +576,7 @@ async def create_bonus_score(
         score=float(bonus.score),
         category=bonus.category,
         reason=bonus.reason,
-        given_by_name=bonus.given_by_name,
+        given_by_name=bonus.given_by_name or (giver.name if giver else ""),
         given_at=bonus.given_at.isoformat() if bonus.given_at else "",
     )
 
@@ -655,6 +655,12 @@ async def student_rubrics(
 
     tasks: list[TaskRubricOut] = []
     for title, items in tasks_map.items():
+        raw_node_schedule_id = items[0].get("node_schedule_id") if items else None
+        try:
+            node_schedule_id = int(raw_node_schedule_id) if raw_node_schedule_id is not None else None
+        except (TypeError, ValueError):
+            node_schedule_id = None
+
         rubric_items = [
             RubricItemOut(
                 rubric_metric=it.get("rubric_metric", ""),
@@ -671,6 +677,7 @@ async def student_rubrics(
         tasks.append(
             TaskRubricOut(
                 task_title=title,
+                node_schedule_id=node_schedule_id,
                 rubric_items=rubric_items,
                 overall_feedback=overall_map.get(title),
                 total_human=total_human,

@@ -108,7 +108,7 @@ async def get_rubric_scores_for_student(
 ) -> List[Dict[str, Any]]:
     """Fetch rubric evaluation results for a specific student in a course.
 
-    Returns rows with: task_title, rubric_metric, rubric_order,
+    Returns rows with: task_title, node_schedule_id, rubric_metric, rubric_order,
     human_score, gpt_score, rubric_feedback, overall_feedback
     """
     # 1. Get course IDs for this group (optimization)
@@ -126,6 +126,7 @@ async def get_rubric_scores_for_student(
     sql = f"""
     SELECT
         n.title AS task_title,
+        ns.id AS node_schedule_id,
         r.metric AS rubric_metric,
         r."order" AS rubric_order,
         e.score AS human_score,
@@ -144,7 +145,7 @@ async def get_rubric_scores_for_student(
     LEFT JOIN core_rubricgptevaluation rge ON rge.evaluation_id = e.id
     WHERE ue.user_id = {user_id}
       AND cnvr.course_id IN ({course_ids_str})
-    ORDER BY n.title, r."order"
+    ORDER BY ns.id, r."order", n.title
     """
     return await _query_legacy(sql)
 
@@ -154,7 +155,7 @@ async def get_rubric_scores_all_students(
 ) -> List[Dict[str, Any]]:
     """Fetch rubric evaluation results for ALL students in a course.
 
-    Returns rows with: student_id, student_name, task_title, rubric_metric,
+    Returns rows with: student_id, student_name, task_title, node_schedule_id, rubric_metric,
     rubric_order, human_score, gpt_score, rubric_feedback, overall_feedback
     """
     # 1. Get course IDs for this group (optimization)
@@ -171,6 +172,7 @@ async def get_rubric_scores_all_students(
         ue.user_id AS student_id,
         TRIM(CONCAT(cu.last_name, cu.first_name)) AS student_name,
         n.title AS task_title,
+        ns.id AS node_schedule_id,
         r.metric AS rubric_metric,
         r."order" AS rubric_order,
         e.score AS human_score,
@@ -189,7 +191,7 @@ async def get_rubric_scores_all_students(
     LEFT JOIN core_rubric r ON e.rubric_id = r.id
     LEFT JOIN core_rubricgptevaluation rge ON rge.evaluation_id = e.id
     WHERE cnvr.course_id IN ({course_ids_str})
-    ORDER BY cu.first_name, n.title, r."order"
+    ORDER BY cu.first_name, ns.id, r."order", n.title
     """
     return await _query_legacy(sql)
 

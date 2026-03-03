@@ -419,6 +419,7 @@
 			);
 
 			const headersSet = new Set<string>();
+			const headerOrderByScheduleId: Record<string, number> = {};
 			const matrix: Record<string, number | null> = {};
 			let hasAnyError = false;
 
@@ -428,11 +429,23 @@
 					const title = normalizeNodeTitle(task.task_title || '');
 					if (!title) continue;
 					headersSet.add(title);
+					const scheduleId = task.node_schedule_id;
+					if (scheduleId !== null && Number.isFinite(scheduleId)) {
+						const current = headerOrderByScheduleId[title];
+						if (current === undefined || scheduleId < current) {
+							headerOrderByScheduleId[title] = scheduleId;
+						}
+					}
 					matrix[nodeCellKey(response.studentId, title)] = nodeStarCount(task.total_human || 0);
 				}
 			}
 
-			const headers = [...headersSet];
+			const headers = [...headersSet].sort((a, b) => {
+				const aScheduleId = headerOrderByScheduleId[a] ?? Number.MAX_SAFE_INTEGER;
+				const bScheduleId = headerOrderByScheduleId[b] ?? Number.MAX_SAFE_INTEGER;
+				if (aScheduleId !== bScheduleId) return aScheduleId - bScheduleId;
+				return a.localeCompare(b, 'ko-KR');
+			});
 			for (const student of allMatrixStudents) {
 				for (const title of headers) {
 					const key = nodeCellKey(student.legacy_user_id, title);

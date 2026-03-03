@@ -80,6 +80,7 @@ class RubricItemOut(BaseModel):
 
 class TaskRubricOut(BaseModel):
     task_title: str
+    node_schedule_id: Optional[int] = None
     rubric_items: List[RubricItemOut]
     overall_feedback: Optional[str] = None
     total_human: int = 0
