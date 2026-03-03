@@ -629,7 +629,7 @@
 														<span class="text-[10px] leading-none">✓</span>
 													</button>
 												{/if}
-												<button onclick={() => goto(`${base}/student/${courseId}?student_id=${student.legacy_user_id}`)} class="text-center hover:text-blue-700 cursor-pointer truncate max-w-[95px] leading-tight">{student.name}</button>
+												<button onclick={() => goto(`${base}/student/${courseId}?student_id=${student.legacy_user_id}&student_name=${encodeURIComponent(student.name)}`)} class="text-center hover:text-blue-700 cursor-pointer truncate max-w-[95px] leading-tight">{student.name}</button>
 											</div>
 										</td>
 										{#each sortedQuests as quest}

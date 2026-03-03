@@ -15,9 +15,21 @@
 	let rubricData = $state<StudentRubricResponse | null>(null);
 	let courseId = $derived(page.params.courseId);
 	let viewedStudentId = $derived(page.url.searchParams.get('student_id'));
+	let viewedStudentName = $derived(page.url.searchParams.get('student_name'));
+	let viewedStudentLabel = $derived(
+		viewedStudentName?.trim() || (viewedStudentId ? `학생 ${viewedStudentId}` : '')
+	);
 	let courseName = $derived(
 		$activeCourses.find((c) => String(c.legacy_course_id) === courseId)?.name || '과정'
 	);
+
+	async function goBack() {
+		if (viewedStudentId && $userRole === 'facilitator') {
+			await goto(`${base}/facilitator/courses/${courseId}`);
+			return;
+		}
+		await goto(`${base}/student`);
+	}
 
 	// Derived metrics
 	let totalQuests = $derived(data?.scores.length || 0);
@@ -237,6 +249,21 @@
 
 <div class="max-w-4xl mx-auto px-3 py-6 sm:px-6">
 	<div class="mb-6">
+		<div class="mb-3 flex items-center justify-between gap-2">
+			<button
+				type="button"
+				onclick={goBack}
+				class="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+			>
+				<span aria-hidden="true">←</span>
+				뒤로가기
+			</button>
+			{#if viewedStudentLabel}
+				<span class="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+					{viewedStudentLabel} 페이지
+				</span>
+			{/if}
+		</div>
 		<h1 class="text-2xl font-bold text-gray-800">{courseName}</h1>
 	</div>
 
