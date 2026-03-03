@@ -97,13 +97,6 @@
 		return 'bg-emerald-100 text-emerald-800';
 	}
 
-	function questModuleToneClass(questType: string): string {
-		if (questType === 'sub') return 'bg-emerald-50 text-emerald-800';
-		if (questType === 'main') return 'bg-indigo-50 text-indigo-800';
-		if (questType === 'datathon') return 'bg-amber-50 text-amber-800';
-		return 'bg-violet-50 text-violet-800';
-	}
-
 	function studentRowQuestTotal(studentId: number): number {
 		let total = 0;
 		for (const quest of sortedQuests) {
@@ -752,11 +745,11 @@
 					<table class="w-full min-w-[980px] text-sm border-collapse">
 						<thead class="bg-gray-100">
 							<tr>
-								<th class="sticky left-0 z-20 bg-indigo-100 px-1 py-1 text-center font-bold text-indigo-800 min-w-[112px] border-r border-b border-indigo-200 tracking-tight">모듈명</th>
+								<th class="sticky left-0 z-20 bg-gray-100 px-1 py-1 text-center font-bold text-gray-700 min-w-[112px] border-r border-b border-gray-300">모듈명</th>
 							{#each sortedQuests as quest}
 								{@const moduleName = getQuestModuleDisplayName(quest)}
-								<th class={`px-1 py-1 text-center min-w-[120px] border-r border-b border-gray-300 ${questModuleToneClass(quest.quest_type)}`}>
-									<span class={`inline-flex items-center justify-center rounded px-1 py-0.5 text-[11px] font-bold leading-tight ${moduleName ? '' : 'opacity-45'}`}>{moduleName || '-'}</span>
+								<th class="px-1 py-1 text-center min-w-[120px] border-r border-b border-gray-300 bg-gray-100">
+									<span class={`inline-flex items-center justify-center rounded px-1 py-0.5 text-[11px] font-bold leading-tight text-gray-700 ${moduleName ? '' : 'opacity-45'}`}>{moduleName || '-'}</span>
 								</th>
 							{/each}
 								<th class="px-1 py-1 text-center min-w-[60px] border-b border-gray-300"></th>
