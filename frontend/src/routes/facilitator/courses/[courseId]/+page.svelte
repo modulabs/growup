@@ -554,18 +554,18 @@
 							<th class="sticky left-0 z-20 bg-gray-100 px-1 py-1 text-center font-semibold text-gray-700 min-w-[112px] border-r border-b border-gray-300">학생</th>
 								{#each sortedQuests as quest}
 									<th class="px-1 py-1 text-center min-w-[120px] border-r border-b border-gray-300">
-										<div class="flex flex-col items-center gap-1 relative">
-											<button class="text-xs font-semibold text-gray-700 hover:text-blue-700 cursor-pointer" onclick={() => openEditModal(quest)}>
+										<div class="flex items-start justify-between gap-1.5 relative w-full">
+											<button class="text-xs font-semibold text-gray-700 hover:text-blue-700 cursor-pointer text-left leading-tight" onclick={() => openEditModal(quest)}>
 												{quest.title || `${QUEST_TYPE_LABELS[quest.quest_type]} #${quest.quest_number}`}
 											</button>
 											<button
 												type="button"
 												onclick={() => (questMenuOpenId = questMenuOpenId === quest.id ? null : quest.id)}
-												class={`h-6 w-6 rounded-md border bg-white cursor-pointer flex items-center justify-center transition-colors ${questMenuOpenId === quest.id ? 'border-blue-400 text-blue-600 shadow-sm' : 'border-gray-300 text-gray-500 hover:text-gray-700 hover:border-gray-400'}`}
+												class={`h-4 w-4 cursor-pointer flex items-center justify-center transition-colors flex-shrink-0 ${questMenuOpenId === quest.id ? 'text-blue-600' : 'text-gray-400 hover:text-gray-700'}`}
 												title="퀘스트 메뉴"
 												aria-label="퀘스트 메뉴"
 											>
-												<svg viewBox="0 0 20 20" class="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+												<svg viewBox="0 0 20 20" class="h-3 w-3" fill="currentColor" aria-hidden="true">
 													<circle cx="4" cy="10" r="1.5"></circle>
 													<circle cx="10" cy="10" r="1.5"></circle>
 													<circle cx="16" cy="10" r="1.5"></circle>
