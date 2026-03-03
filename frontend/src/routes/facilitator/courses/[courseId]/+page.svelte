@@ -514,6 +514,24 @@
 		}
 	}
 
+	function formatBonusGivenByName(name: string): string {
+		const normalized = name.trim();
+		return normalized === '' ? '-' : normalized;
+	}
+
+	function formatBonusGivenAt(value: string): string {
+		if (!value) return '-';
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return '-';
+		return date.toLocaleString('ko-KR', {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
+	}
+
 	function extractSpreadsheetId(input: string): string {
 		// Accept full URL or bare ID
 		const match = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
@@ -1118,19 +1136,23 @@
 									<th class="px-3 py-2 text-center text-xs font-medium text-gray-500">점수</th>
 									<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">카테고리</th>
 									<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">사유</th>
+									<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">부여자</th>
+									<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">부여일시</th>
 									<th class="px-3 py-2 text-center text-xs font-medium text-gray-500 w-10"></th>
 								</tr>
 							</thead>
 							<tbody class="divide-y divide-gray-100">
 								{#each bonusScores as bs}
-									<tr class="hover:bg-gray-50" title="{bs.given_by_name} · {new Date(bs.given_at).toLocaleDateString('ko-KR')}">
+									<tr class="hover:bg-gray-50">
 					<td class="px-3 py-2 font-medium text-gray-800 max-w-full lg:max-w-[80px] truncate">{bs.student_name}</td>
 						<td class="px-3 py-2 text-center font-bold text-green-600">+{bs.score}</td>
 						<td class="px-3 py-2 text-xs text-gray-800 max-w-full lg:max-w-[80px] truncate">{bs.category}</td>
 						<td class="px-3 py-2 text-gray-600 max-w-full lg:max-w-[100px] truncate">{bs.reason}</td>
-										<td class="px-3 py-2 text-center">
-											<button
-												onclick={() => deleteBonusScore(bs.id)}
+						<td class="px-3 py-2 text-gray-700 text-xs whitespace-nowrap">{formatBonusGivenByName(bs.given_by_name)}</td>
+						<td class="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{formatBonusGivenAt(bs.given_at)}</td>
+									<td class="px-3 py-2 text-center">
+										<button
+											onclick={() => deleteBonusScore(bs.id)}
 												class="text-red-400 hover:text-red-600 cursor-pointer text-xs"
 											>
 												삭제
