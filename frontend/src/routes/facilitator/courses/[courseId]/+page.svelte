@@ -177,6 +177,7 @@
 	let inactiveStudents = $state<Student[]>([]);
 	let studentTab = $state<'active' | 'inactive'>('active');
 	let matrixStudentScope = $state<'filtered' | 'all'>('filtered');
+	let matrixScopeHydratedKey = $state<string | null>(null);
 	let togglingStudentId = $state<number | null>(null);
 	let bonusScores = $state<BonusScoreOut[]>([]);
 	let bonusLoading = $state(false);
@@ -188,10 +189,26 @@
 	let bonusSubmitting = $state(false);
 
 	const BONUS_CATEGORIES = ['퍼실재량점수', '아낌없이 주는 그루', '디스코드 소통왕', '쉐밸그투', '직접 입력'];
+	let matrixScopeStorageKey = $derived(`growup_matrix_scope_${courseId}`);
 	let allMatrixStudents = $derived([...activeStudents, ...inactiveStudents]);
 	let matrixStudents = $derived(
 		matrixStudentScope === 'all' ? allMatrixStudents : activeStudents
 	);
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const key = matrixScopeStorageKey;
+		if (matrixScopeHydratedKey === key) return;
+		const saved = localStorage.getItem(key);
+		matrixStudentScope = saved === 'all' ? 'all' : 'filtered';
+		matrixScopeHydratedKey = key;
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		if (matrixScopeHydratedKey !== matrixScopeStorageKey) return;
+		localStorage.setItem(matrixScopeStorageKey, matrixStudentScope);
+	});
 
 	function isActiveMatrixStudent(studentId: number): boolean {
 		return activeStudents.some((student) => student.legacy_user_id === studentId);
@@ -221,8 +238,7 @@
 
 	onMount(async () => {
 		if (!$isLoggedIn) { goto(`${base}/login`); return; }
-		// Auto-sync students in background (silent), then load everything
-		api.post(`/api/v1/admin/sync/students/${courseId}`).catch(() => {});
+		// Keep facilitator-managed student filters stable across reloads/deploys.
 		await loadQuests();
 		await loadStudents();
 		await loadMatrix();

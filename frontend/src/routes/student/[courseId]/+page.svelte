@@ -36,18 +36,22 @@
 	let completedQuests = $derived(data?.scores.filter((s) => s.is_submitted).length || 0);
 
 	let completedRubrics = $derived(rubricData?.tasks.length || 0);
+	const growthRewardMilestones = [
+		{ threshold: 20, label: '상품1' },
+		{ threshold: 40, label: '상품2' },
+		{ threshold: 60, label: '상품3' },
+		{ threshold: 80, label: '상품4' },
+		{ threshold: 100, label: '상품5' }
+	] as const;
 
 	let growthTemp = $derived.by(() => {
 		if (!data) return 0;
 		return Math.round(data.total_quest_score + data.total_bonus_score);
 	});
 	let growthTempProgress = $derived.by(() => Math.max(0, Math.min(100, growthTemp)));
-
-	let passionTemp = $derived.by(() => {
-		if (!data || totalQuests === 0) return 0;
-		return Math.round((completedQuests / totalQuests) * 100);
-	});
-	let passionTempProgress = $derived.by(() => Math.max(0, Math.min(100, passionTemp)));
+	let nextGrowthReward = $derived.by(
+		() => growthRewardMilestones.find((milestone) => growthTemp < milestone.threshold) || null
+	);
 
 	let activeTab = $state<'quests' | 'rubrics' | 'bonus'>('quests');
 
@@ -267,26 +271,38 @@
 					</div>
 				</div>
 
-				<!-- Passion Temp -->
-				<div class="bg-gradient-to-r from-orange-50 to-white rounded-xl border border-orange-100 p-6 relative overflow-hidden">
-					<div class="flex justify-between items-end mb-2 relative z-10">
-						<div>
-							<h3 class="text-orange-800 font-bold text-lg flex items-center gap-2">
-								🔥 열정 온도
-							</h3>
-							<p class="text-orange-600 text-xs mt-1">전체 퀘스트 제출률 지표입니다.</p>
-						</div>
-						<span class="text-4xl font-black text-orange-500">{passionTemp}°C</span>
+				<div class="bg-gradient-to-r from-violet-50 to-white rounded-xl border border-violet-100 p-5">
+					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
+						<h3 class="text-violet-800 font-bold text-base sm:text-lg flex items-center gap-2">
+							🎁 성장 온도 보상
+						</h3>
+						{#if nextGrowthReward}
+							<span class="inline-flex items-center rounded-md bg-violet-100 text-violet-700 px-2 py-1 text-xs font-semibold">
+								다음: {nextGrowthReward.label} ({nextGrowthReward.threshold - growthTemp}점 남음)
+							</span>
+						{:else}
+							<span class="inline-flex items-center rounded-md bg-emerald-100 text-emerald-700 px-2 py-1 text-xs font-semibold">
+								모든 보상 달성
+							</span>
+						{/if}
 					</div>
-					<div class="w-full bg-orange-100 rounded-full h-4 mt-2 relative z-10">
-						<div 
-							class="bg-gradient-to-r from-orange-400 to-orange-600 h-4 rounded-full transition-all duration-1000 shadow-sm" 
-							style="width: {passionTempProgress}%"
-						></div>
-					</div>
-					<!-- Background Deco -->
-					<div class="absolute -right-6 -bottom-6 text-orange-100 opacity-50">
-						<svg width="120" height="120" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 10c0-2.21-1.79-4-4-4s-4 1.79-4 4c0 .3.03.6.09.88.07-.02.14-.04.22-.04.83 0 1.5.67 1.5 1.5 0 .83-.67 1.5-1.5 1.5-.26 0-.5-.07-.72-.19-.4.92-.79 2.15-.79 3.35 0 2.76 2.24 5 5 5s5-2.24 5-5c0-2.3-1.63-4.25-3.8-4.82zM15 2c0 5 4 8 4 11 0 4.42-3.58 8-8 8S3 17.42 3 13c0-3 2-5 2-5s.5-.5 1.5 0c1 .5 2 2 2 2s-.5-4 2.5-6 3-2 4-2z" /></svg>
+					<div class="space-y-2">
+						{#each growthRewardMilestones as milestone}
+							<div class={`flex items-center justify-between rounded-lg border px-3 py-2 ${growthTemp >= milestone.threshold ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 bg-white'}`}>
+								<div class="flex items-center gap-2">
+									<span class={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${growthTemp >= milestone.threshold ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
+										{growthTemp >= milestone.threshold ? '✓' : '•'}
+									</span>
+									<span class="text-sm font-semibold text-gray-700">{milestone.threshold}°C</span>
+								</div>
+								<div class="flex items-center gap-2">
+									<span class="text-sm font-medium text-gray-700">{milestone.label}</span>
+									<span class={`text-xs font-semibold ${growthTemp >= milestone.threshold ? 'text-emerald-700' : 'text-gray-500'}`}>
+										{growthTemp >= milestone.threshold ? '달성' : '미달성'}
+									</span>
+								</div>
+							</div>
+						{/each}
 					</div>
 				</div>
 			</div>
