@@ -557,6 +557,15 @@
 											<button class="text-xs font-semibold text-gray-700 hover:text-blue-700 cursor-pointer" onclick={() => openEditModal(quest)}>
 												{quest.title || `${QUEST_TYPE_LABELS[quest.quest_type]} #${quest.quest_number}`}
 											</button>
+											<button
+												type="button"
+												onclick={() => deleteQuest(quest)}
+												class="text-[10px] px-1.5 py-0.5 rounded border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 cursor-pointer"
+												title="퀘스트 열 삭제"
+												aria-label="퀘스트 열 삭제"
+											>
+												삭제
+											</button>
 										</div>
 									</th>
 								{/each}
