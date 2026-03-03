@@ -165,6 +165,8 @@
 	let selectedQuestIds = $state<Set<string>>(new Set());
 	let batchDeleting = $state(false);
 	let allSelected = $derived(quests.length > 0 && selectedQuestIds.size === quests.length);
+	let questModuleOverrides = $state<Record<string, string>>({});
+	let questModuleOverridesHydratedKey = $state<string | null>(null);
 
 	function toggleSelectQuest(id: string) {
 		const next = new Set(selectedQuestIds);
@@ -236,6 +238,7 @@
 
 	const BONUS_CATEGORIES = ['퍼실재량점수', '아낌없이 주는 그루', '디스코드 소통왕', '쉐밸그투', '직접 입력'];
 	let matrixScopeStorageKey = $derived(`growup_matrix_scope_${courseId}`);
+	let questModuleOverridesStorageKey = $derived(`growup_quest_modules_${courseId}`);
 	let allMatrixStudents = $derived([...activeStudents, ...inactiveStudents]);
 	let matrixStudents = $derived(
 		matrixStudentScope === 'all' ? allMatrixStudents : activeStudents
@@ -255,6 +258,48 @@
 		if (matrixScopeHydratedKey !== matrixScopeStorageKey) return;
 		localStorage.setItem(matrixScopeStorageKey, matrixStudentScope);
 	});
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const key = questModuleOverridesStorageKey;
+		if (questModuleOverridesHydratedKey === key) return;
+		const saved = localStorage.getItem(key);
+		if (!saved) {
+			questModuleOverrides = {};
+			questModuleOverridesHydratedKey = key;
+			return;
+		}
+		try {
+			const parsed = JSON.parse(saved) as Record<string, string>;
+			questModuleOverrides = parsed && typeof parsed === 'object' ? parsed : {};
+		} catch {
+			questModuleOverrides = {};
+		}
+		questModuleOverridesHydratedKey = key;
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		if (questModuleOverridesHydratedKey !== questModuleOverridesStorageKey) return;
+		localStorage.setItem(questModuleOverridesStorageKey, JSON.stringify(questModuleOverrides));
+	});
+
+	function setQuestModuleOverride(questId: string, moduleName: string | null) {
+		const normalized = moduleName?.trim() || '';
+		const next = { ...questModuleOverrides };
+		if (normalized === '') {
+			delete next[questId];
+		} else {
+			next[questId] = normalized;
+		}
+		questModuleOverrides = next;
+	}
+
+	function getQuestModuleDisplayName(quest: Quest): string {
+		const apiValue = quest.module_name?.trim();
+		if (apiValue) return apiValue;
+		return questModuleOverrides[quest.id]?.trim() || '';
+	}
 
 	function isActiveMatrixStudent(studentId: number): boolean {
 		return activeStudents.some((student) => student.legacy_user_id === studentId);
@@ -293,7 +338,11 @@
 	async function loadQuests() {
 		loading = true;
 		try {
-			quests = await api.get<Quest[]>(`/api/v1/facilitator/courses/${courseId}/quests`);
+			const loaded = await api.get<Quest[]>(`/api/v1/facilitator/courses/${courseId}/quests`);
+			quests = loaded.map((quest) => ({
+				...quest,
+				module_name: quest.module_name?.trim() || questModuleOverrides[quest.id]?.trim() || null
+			}));
 			selectedQuestIds = new Set();
 		} catch (err) {
 			addToast('퀘스트 목록을 불러올 수 없습니다.', 'error');
@@ -592,7 +641,7 @@
 		editingQuest = quest;
 		questNumber = quest.quest_number;
 		questType = quest.quest_type;
-		questModuleName = quest.module_name || '';
+		questModuleName = getQuestModuleDisplayName(quest);
 		questTitle = quest.title || '';
 		questDate = quest.quest_date;
 		showModal = true;
@@ -601,19 +650,22 @@
 	async function handleSubmitQuest() {
 		modalLoading = true;
 		try {
+			const normalizedModuleName = questModuleName.trim() || null;
 			const body = {
 				quest_number: questNumber,
 				quest_type: questType,
-				module_name: questModuleName.trim() || null,
+				module_name: normalizedModuleName,
 				title: questTitle.trim() || null,
 				quest_date: questDate
 			};
 
 			if (editingQuest) {
-				await api.put(`/api/v1/facilitator/quests/${editingQuest.id}`, body);
+				const updated = await api.put<Quest>(`/api/v1/facilitator/quests/${editingQuest.id}`, body);
+				setQuestModuleOverride(updated.id || editingQuest.id, normalizedModuleName);
 				addToast('퀘스트가 수정되었습니다.', 'success');
 			} else {
-				await api.post(`/api/v1/facilitator/courses/${courseId}/quests`, body);
+				const created = await api.post<Quest>(`/api/v1/facilitator/courses/${courseId}/quests`, body);
+				setQuestModuleOverride(created.id, normalizedModuleName);
 				addToast('퀘스트가 생성되었습니다.', 'success');
 			}
 
@@ -696,7 +748,7 @@
 								<th class="sticky left-0 z-20 bg-gray-100 px-1 py-1 text-center font-semibold text-gray-700 min-w-[112px] border-r border-b border-gray-300">모듈명</th>
 							{#each sortedQuests as quest}
 								<th class="px-1 py-1 text-center min-w-[120px] border-r border-b border-gray-300 bg-gray-50">
-									<span class="text-[11px] font-medium text-gray-600">{quest.module_name?.trim() || '-'}</span>
+									<span class="text-[11px] font-medium text-gray-600">{getQuestModuleDisplayName(quest) || '-'}</span>
 								</th>
 							{/each}
 								<th class="px-1 py-1 text-center min-w-[60px] border-b border-gray-300"></th>
@@ -1286,7 +1338,7 @@
 						<option value="sub">서브퀘스트 (0~1)</option>
 						<option value="main">메인퀘스트 (0~5)</option>
 						<option value="datathon">데이터톤 (0~10)</option>
-						<option value="ideathon">아이디어톤 (0~20)</option>
+						<option value="ideathon">365챌린지 (0~20)</option>
 					</select>
 				</div>
 
