@@ -352,14 +352,6 @@
 					<p class="text-xs text-gray-400 mt-2">평가 완료</p>
 				</div>
 
-				<div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col justify-center col-span-2">
-					<p class="text-sm text-gray-500 font-medium mb-1">총 획득 점수</p>
-					<span class="text-4xl font-bold text-gray-800 mb-1">{data.total_score}</span>
-					<div class="text-xs text-gray-400 flex flex-col gap-1">
-						<span>퀘스트: <span class="text-blue-600 font-medium">{data.total_quest_score}</span></span>
-						<span>비정규: <span class="text-amber-600 font-medium">+{data.total_bonus_score}</span></span>
-					</div>
-				</div>
 			</div>
 		</div>
 
