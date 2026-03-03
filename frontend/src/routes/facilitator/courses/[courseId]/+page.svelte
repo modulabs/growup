@@ -927,16 +927,20 @@
 					<table class="w-full min-w-[720px] text-sm border-collapse">
 						<thead class="bg-gray-100">
 							<tr>
-								<th class="sticky left-0 z-20 bg-gray-100 px-1 py-1 text-center font-semibold text-gray-700 min-w-[112px] border-r border-b border-gray-300">학생</th>
+								<th rowspan="2" class="sticky left-0 z-20 bg-gray-100 px-1 py-1 text-center font-semibold text-gray-700 min-w-[112px] border-r border-b border-gray-300">학생</th>
 								{#each nodeHeaders as nodeTitle}
 									<th class="px-2 py-1 text-center min-w-[120px] border-r border-b border-gray-300 text-xs text-gray-700">
-										<div class="flex flex-col items-center leading-tight gap-0.5">
-											<span class="font-semibold">{nodeTitle}</span>
-											<span class="text-[10px] text-gray-500">{nodeHeaderScheduleText[nodeTitle] || '-'}</span>
-										</div>
+										<span class="font-semibold leading-tight">{nodeTitle}</span>
 									</th>
 								{/each}
-								<th class="sticky right-0 z-20 bg-gray-100 px-2 py-1 text-center font-semibold text-gray-700 min-w-[92px] border-l border-b border-gray-300">총합</th>
+								<th rowspan="2" class="sticky right-0 z-20 bg-gray-100 px-2 py-1 text-center font-semibold text-gray-700 min-w-[92px] border-l border-b border-gray-300">총합</th>
+							</tr>
+							<tr>
+								{#each nodeHeaders as nodeTitle}
+									<th class="px-2 py-1 text-center min-w-[120px] border-r border-b border-gray-300 text-[10px] font-medium text-gray-500 leading-tight">
+										{nodeHeaderScheduleText[nodeTitle] || '-'}
+									</th>
+								{/each}
 							</tr>
 						</thead>
 						<tbody>
