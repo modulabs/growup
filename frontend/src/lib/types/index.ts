@@ -111,7 +111,7 @@ export const QUEST_TYPE_LABELS: Record<string, string> = {
 	sub: '서브퀘스트',
 	main: '메인퀘스트',
 	datathon: '데이터톤',
-	ideathon: '아이디어톤'
+	ideathon: '365챌린지'
 };
 
 export interface RubricItemOut {
