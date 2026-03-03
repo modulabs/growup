@@ -20,6 +20,7 @@ class Quest(Base):
     quest_type: Mapped[str] = mapped_column(
         String(20)
     )  # sub | main | datathon | ideathon
+    module_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     quest_date: Mapped[date] = mapped_column(Date)
     created_by_legacy_user_id: Mapped[int] = mapped_column(BigInteger)

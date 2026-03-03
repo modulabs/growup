@@ -154,6 +154,7 @@
 	let modalLoading = $state(false);
 	let questNumber = $state(1);
 	let questType = $state<string>('main');
+	let questModuleName = $state('');
 	let questTitle = $state('');
 	let questDate = $state(new Date().toISOString().split('T')[0]);
 
@@ -563,6 +564,7 @@
 		editingQuest = null;
 		questNumber = quests.length > 0 ? Math.max(...quests.map((q) => q.quest_number)) + 1 : 1;
 		questType = 'main';
+		questModuleName = '';
 		questTitle = '';
 		questDate = new Date().toISOString().split('T')[0];
 		showModal = true;
@@ -572,6 +574,7 @@
 		editingQuest = quest;
 		questNumber = quest.quest_number;
 		questType = quest.quest_type;
+		questModuleName = quest.module_name || '';
 		questTitle = quest.title || '';
 		questDate = quest.quest_date;
 		showModal = true;
@@ -583,6 +586,7 @@
 			const body = {
 				quest_number: questNumber,
 				quest_type: questType,
+				module_name: questModuleName.trim() || null,
 				title: questTitle.trim() || null,
 				quest_date: questDate
 			};
@@ -671,7 +675,17 @@
 					<table class="w-full min-w-[980px] text-sm border-collapse">
 						<thead class="bg-gray-100">
 							<tr>
-							<th class="sticky left-0 z-20 bg-gray-100 px-1 py-1 text-center font-semibold text-gray-700 min-w-[112px] border-r border-b border-gray-300">학생</th>
+								<th class="sticky left-0 z-20 bg-gray-100 px-1 py-1 text-center font-semibold text-gray-700 min-w-[112px] border-r border-b border-gray-300">모듈명</th>
+							{#each sortedQuests as quest}
+								<th class="px-1 py-1 text-center min-w-[120px] border-r border-b border-gray-300 bg-gray-50">
+									<span class="text-[11px] font-medium text-gray-600">{quest.module_name?.trim() || '-'}</span>
+								</th>
+							{/each}
+								<th class="px-1 py-1 text-center min-w-[60px] border-b border-gray-300"></th>
+								<th class="sticky right-0 z-20 bg-gray-100 px-2 py-1 text-center font-semibold text-gray-700 min-w-[92px] border-l border-b border-gray-300"></th>
+							</tr>
+							<tr>
+								<th class="sticky left-0 z-20 bg-gray-100 px-1 py-1 text-center font-semibold text-gray-700 min-w-[112px] border-r border-b border-gray-300">학생</th>
 								{#each sortedQuests as quest}
 									<th class="px-1 py-1 text-center min-w-[120px] border-r border-b border-gray-300">
 										<div class="flex items-start justify-between gap-1.5 relative w-full">
@@ -1252,6 +1266,16 @@
 						<option value="datathon">데이터톤 (0~10)</option>
 						<option value="ideathon">아이디어톤 (0~20)</option>
 					</select>
+				</div>
+
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-1">모듈명 (선택)</label>
+					<input
+						type="text"
+						bind:value={questModuleName}
+						placeholder="예: 머신러닝, 데이터분석"
+						class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+					/>
 				</div>
 
 				<div>

@@ -9,6 +9,7 @@ from pydantic import BaseModel
 class QuestCreate(BaseModel):
     quest_number: int
     quest_type: str  # sub | main | datathon | ideathon
+    module_name: Optional[str] = None
     title: Optional[str] = None
     quest_date: date
 
@@ -16,6 +17,7 @@ class QuestCreate(BaseModel):
 class QuestUpdate(BaseModel):
     quest_number: Optional[int] = None
     quest_type: Optional[str] = None
+    module_name: Optional[str] = None
     title: Optional[str] = None
     quest_date: Optional[date] = None
 
@@ -25,6 +27,7 @@ class QuestOut(BaseModel):
     cached_course_id: int
     quest_number: int
     quest_type: str
+    module_name: Optional[str] = None
     title: Optional[str] = None
     quest_date: date
     graded_count: int = 0

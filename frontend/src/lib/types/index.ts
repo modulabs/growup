@@ -42,6 +42,7 @@ export interface Quest {
 	cached_course_id: number;
 	quest_number: number;
 	quest_type: 'sub' | 'main' | 'datathon' | 'ideathon';
+	module_name?: string | null;
 	title: string | null;
 	quest_date: string;
 	graded_count: number;
