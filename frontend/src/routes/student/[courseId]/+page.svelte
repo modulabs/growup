@@ -7,7 +7,7 @@
 	import { isLoggedIn, activeCourses, userRole } from '$lib/stores/auth';
 	import { addToast } from '$lib/stores/toast';
 	import { SCORE_RULES, QUEST_TYPE_LABELS } from '$lib/types';
-	import type { BonusScoreOut, CourseScoreSummary, Quest, ScoreOut, StudentRubricResponse, TaskRubricOut } from '$lib/types';
+	import type { BonusScoreOut, CourseScoreSummary, Quest, ScoreOut, StudentRubricResponse } from '$lib/types';
 	import LoadingSkeleton from '$lib/components/LoadingSkeleton.svelte';
 
 	let loading = $state(true);
@@ -36,48 +36,18 @@
 	let completedQuests = $derived(data?.scores.filter((s) => s.is_submitted).length || 0);
 
 	let completedRubrics = $derived(rubricData?.tasks.length || 0);
-	let totalRubrics = $derived(rubricData?.total_rubric_tasks || 0);
-
-	let rubricTotalScore = $derived(
-		rubricData?.tasks.reduce((sum, t) => sum + t.total_human + t.total_gpt, 0) || 0
-	);
-
-
-	let rubricMaxScore = $derived(
-		rubricData?.tasks.reduce((sum: number, t: TaskRubricOut) => sum + t.rubric_items.length * 2, 0) || 0
-	);
 
 	let growthTemp = $derived.by(() => {
-		if (!data || totalQuests === 0) return 0;
-		// Participation (60%)
-		const participation = (completedQuests / totalQuests) * 100;
-		// Quality (40%)
-		let maxPossibleScore = 0;
-		data.scores.forEach((s) => {
-			const rule = SCORE_RULES[s.quest_type] || SCORE_RULES['main'];
-			maxPossibleScore += rule.max;
-		});
-
-		// Merge Rubric Scores into Quality
-		const totalObtained = data.total_quest_score + rubricTotalScore;
-		const totalMax = maxPossibleScore + rubricMaxScore;
-
-		const quality = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0;
-		return Math.round(participation * 0.6 + quality * 0.4);
+		if (!data) return 0;
+		return Math.round(data.total_quest_score + data.total_bonus_score);
 	});
+	let growthTempProgress = $derived.by(() => Math.max(0, Math.min(100, growthTemp)));
 
 	let passionTemp = $derived.by(() => {
-		if (!data) return 0;
-		const now = new Date();
-		const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-		const recentQuests = data.scores.filter((s) => {
-			const qDate = new Date(s.quest_date);
-			return qDate >= twoWeeksAgo && qDate <= now;
-		});
-		if (recentQuests.length === 0) return 36.5;
-		const recentSubmitted = recentQuests.filter((s) => s.is_submitted).length;
-		return Math.round((recentSubmitted / recentQuests.length) * 100);
+		if (!data || totalQuests === 0) return 0;
+		return Math.round((completedQuests / totalQuests) * 100);
 	});
+	let passionTempProgress = $derived.by(() => Math.max(0, Math.min(100, passionTemp)));
 
 	let activeTab = $state<'quests' | 'rubrics' | 'bonus'>('quests');
 
@@ -281,14 +251,14 @@
 							<h3 class="text-red-800 font-bold text-lg flex items-center gap-2">
 								❤️ 성장 온도
 							</h3>
-							<p class="text-red-600 text-xs mt-1">꾸준한 참여와 성취의 결과입니다.</p>
+							<p class="text-red-600 text-xs mt-1">퀘스트 점수 + 비정규 점수 합산 지표입니다.</p>
 						</div>
 						<span class="text-4xl font-black text-red-600">{growthTemp}°C</span>
 					</div>
 					<div class="w-full bg-red-100 rounded-full h-4 mt-2 relative z-10">
 						<div 
 							class="bg-gradient-to-r from-red-400 to-red-600 h-4 rounded-full transition-all duration-1000 shadow-sm" 
-							style="width: {growthTemp}%"
+							style="width: {growthTempProgress}%"
 						></div>
 					</div>
 					<!-- Background Deco -->
@@ -304,14 +274,14 @@
 							<h3 class="text-orange-800 font-bold text-lg flex items-center gap-2">
 								🔥 열정 온도
 							</h3>
-							<p class="text-orange-600 text-xs mt-1">최근 2주간의 활동 지표입니다.</p>
+							<p class="text-orange-600 text-xs mt-1">전체 퀘스트 제출률 지표입니다.</p>
 						</div>
 						<span class="text-4xl font-black text-orange-500">{passionTemp}°C</span>
 					</div>
 					<div class="w-full bg-orange-100 rounded-full h-4 mt-2 relative z-10">
 						<div 
 							class="bg-gradient-to-r from-orange-400 to-orange-600 h-4 rounded-full transition-all duration-1000 shadow-sm" 
-							style="width: {passionTemp}%"
+							style="width: {passionTempProgress}%"
 						></div>
 					</div>
 					<!-- Background Deco -->
