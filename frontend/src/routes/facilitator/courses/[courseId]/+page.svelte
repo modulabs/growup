@@ -192,6 +192,10 @@
 		matrixStudentScope === 'all' ? allMatrixStudents : activeStudents
 	);
 
+	function isActiveMatrixStudent(studentId: number): boolean {
+		return activeStudents.some((student) => student.legacy_user_id === studentId);
+	}
+
 	// Rubric View Modal
 	let showStudentModal = $state(false);
 	let selectedStudent = $state<Student | null>(null);
@@ -573,7 +577,20 @@
 								{#each matrixStudents as student}
 									<tr class="border-b border-gray-300 hover:bg-gray-50/70">
 										<td class="sticky left-0 z-10 bg-white px-1 py-1 font-medium text-gray-800 border-r border-gray-300 text-center">
-											<button onclick={() => goto(`${base}/student/${courseId}?student_id=${student.legacy_user_id}`)} class="w-full text-center hover:text-blue-700 cursor-pointer truncate max-w-[108px] mx-auto leading-tight">{student.name}</button>
+											<div class="flex items-center justify-center gap-1">
+												{#if matrixStudentScope === 'all'}
+													<button
+														onclick={() => toggleStudentActive(student.legacy_user_id)}
+														disabled={togglingStudentId === student.legacy_user_id}
+														class={`h-4 w-4 rounded border flex items-center justify-center transition-colors cursor-pointer ${isActiveMatrixStudent(student.legacy_user_id) ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-300 bg-white text-transparent hover:border-blue-400'} disabled:opacity-50 disabled:cursor-not-allowed`}
+														title={isActiveMatrixStudent(student.legacy_user_id) ? '필터 인원에서 제외' : '필터 인원에 포함'}
+														aria-label={isActiveMatrixStudent(student.legacy_user_id) ? '필터 인원에서 제외' : '필터 인원에 포함'}
+													>
+														<span class="text-[10px] leading-none">✓</span>
+													</button>
+												{/if}
+												<button onclick={() => goto(`${base}/student/${courseId}?student_id=${student.legacy_user_id}`)} class="text-center hover:text-blue-700 cursor-pointer truncate max-w-[95px] leading-tight">{student.name}</button>
+											</div>
 										</td>
 										{#each sortedQuests as quest}
 											<td class="p-0 border-r border-gray-200 group">
