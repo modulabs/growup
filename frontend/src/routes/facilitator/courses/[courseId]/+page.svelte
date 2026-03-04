@@ -440,8 +440,22 @@
 			const headerOrderByTime: Record<string, number> = {};
 			const headerOrderByScheduleId: Record<string, number> = {};
 			const headerScheduleTextMap: Record<string, string> = {};
+			const questScheduleTimeByTitle: Record<string, number> = {};
+			const questScheduleTextByTitle: Record<string, string> = {};
 			const matrix: Record<string, number | null> = {};
 			let hasAnyError = false;
+
+			for (const quest of sortedQuests) {
+				const questTitle = normalizeNodeTitle(quest.title || '');
+				if (!questTitle) continue;
+				const questTime = parseNodeScheduleTime(quest.quest_date);
+				if (questTime === null) continue;
+				const currentTime = questScheduleTimeByTitle[questTitle];
+				if (currentTime === undefined || questTime < currentTime) {
+					questScheduleTimeByTitle[questTitle] = questTime;
+					questScheduleTextByTitle[questTitle] = formatNodeScheduleText(quest.quest_date);
+				}
+			}
 
 			for (const response of responses) {
 				if (response.error) hasAnyError = true;
@@ -467,6 +481,22 @@
 						}
 					}
 					matrix[nodeCellKey(response.studentId, title)] = nodeStarCount(task.total_human || 0);
+				}
+			}
+
+			for (const title of headersSet) {
+				const fallbackTime = questScheduleTimeByTitle[title];
+				if (headerOrderByTime[title] === undefined && fallbackTime !== undefined) {
+					headerOrderByTime[title] = fallbackTime;
+				}
+
+				const fallbackText = questScheduleTextByTitle[title];
+				if ((!(title in headerScheduleTextMap) || headerScheduleTextMap[title] === '-') && fallbackText) {
+					headerScheduleTextMap[title] = fallbackText;
+				}
+
+				if (!(title in headerScheduleTextMap)) {
+					headerScheduleTextMap[title] = '-';
 				}
 			}
 
